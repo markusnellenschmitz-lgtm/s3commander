@@ -1,7 +1,7 @@
 {
   "name": "s3-commander",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Schneller Windows-Client für Amazon S3 und S3-kompatiblen Object Storage",
   "license": "MIT",
   "repository": {
