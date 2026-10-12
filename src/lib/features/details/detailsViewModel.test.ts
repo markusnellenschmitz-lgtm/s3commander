@@ -45,7 +45,7 @@ describe('Auswahl', () => {
     expect(vm.head.value?.contentType).toBe('application/zstd');
     expect(vm.versions.value).toHaveLength(3);
     expect(vm.acl.value?.owner).toBe('ops-team');
-    expect(vm.shareUrl).toContain('X-Amz-Expires=86400');
+    expect(vm.share.url).toContain('X-Amz-Expires=86400');
     expect(vm.metadata.rows.map((r) => r.name)).toEqual(['cache-control']);
     await vm.show([file], folder);
     expect(head).toHaveBeenCalledOnce();
@@ -148,13 +148,14 @@ describe('Bedienung', () => {
     await vm.confirmVersionDelete();
   });
 
-  it('erzeugt Links mit gewählter Gültigkeit und kopiert Texte', async () => {
-    await vm.setShareDuration(60);
+  it('erzeugt Links mit gewählter Gültigkeit, teilt sie mit dem Dateinamen und kopiert Texte', async () => {
+    await vm.share.setDuration(60);
     await showFile();
-    await vm.setShareDuration(3600);
-    expect(vm.shareUrl).toContain('X-Amz-Expires=3600');
-    await vm.copyShareUrl();
-    expect(writeText).toHaveBeenLastCalledWith(vm.shareUrl);
+    await vm.share.setDuration(3600);
+    expect(vm.share.url).toContain('X-Amz-Expires=3600');
+    const shareLink = vi.spyOn(backend, 'shareLink');
+    await vm.shareWithWindows();
+    expect(shareLink).toHaveBeenCalledWith('db-incr-20261011-0600.tar.zst', vm.share.url);
     await vm.copy('k');
     expect(writeText).toHaveBeenLastCalledWith('k');
     await vm.copyPresignedUrl({ ...folder, key: KEY });
@@ -162,12 +163,14 @@ describe('Bedienung', () => {
     vi.spyOn(backend, 'presignObject').mockRejectedValueOnce({ kind: 'unexpected', message: 'nein' });
     await vm.copyPresignedUrl({ ...folder, key: KEY });
     expect(vm.errorFor('share')?.message).toBe('nein');
-    expect(vm.nowMs).toBe(0);
   });
 
-  it('kopiert ohne Link nichts und arbeitet ohne Ziel nicht', async () => {
-    await vm.copyShareUrl();
+  it('teilt und kopiert ohne Link nichts und arbeitet ohne Ziel nicht', async () => {
+    const shareLink = vi.spyOn(backend, 'shareLink');
+    await vm.shareWithWindows();
+    await vm.share.copy();
     await vm.restoreVersion('x');
+    expect(shareLink).not.toHaveBeenCalled();
     await vm.reload();
     expect(writeText).not.toHaveBeenCalled();
   });

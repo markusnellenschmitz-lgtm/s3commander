@@ -42,6 +42,7 @@ export const ICONS = [
   'pencil',
   'history',
   'link',
+  'share',
   'download',
   'upload',
   'scissors',

@@ -24,6 +24,7 @@ use adapters::local_files::StdLocalFiles;
 use adapters::profile_file::{JsonProfileRepository, PROFILE_FILE_NAME};
 use adapters::s3::factory::HttpStoreFactory;
 use adapters::settings_file::{JsonSettingsRepository, SETTINGS_FILE_NAME};
+use adapters::share_sheet::WindowsShareSheet;
 use adapters::sqlite_cache::{CACHE_FILE_NAME, SqliteListingCache};
 use adapters::tauri_runtime::{TauriSpawner, TauriTransferEvents};
 use application::connections::ConnectionService;
@@ -122,6 +123,17 @@ pub fn build_details(service: &SharedService) -> AppDetails {
     DetailsService::new(Arc::clone(service), CopySettings::default())
 }
 
+/// Name des Hauptfensters aus `tauri.conf.json`.
+const MAIN_WINDOW: &str = "main";
+
+/// Teilen-Dialog für das Hauptfenster.
+fn build_share_sheet(app: &tauri::App) -> tauri::Result<WindowsShareSheet> {
+    let window = app
+        .get_webview_window(MAIN_WINDOW)
+        .ok_or(tauri::Error::WindowNotFound)?;
+    Ok(WindowsShareSheet::new(window.hwnd()?.0 as isize))
+}
+
 /// Startet die Anwendung und blockiert, bis das letzte Fenster geschlossen ist.
 ///
 /// # Errors
@@ -153,6 +165,7 @@ pub fn run() -> tauri::Result<()> {
             app.manage(build_naming(&service));
             app.manage(build_details(&service));
             app.manage(build_sync(&service));
+            app.manage(build_share_sheet(app)?);
             let cache_dir = app.path().app_cache_dir()?;
             app.manage(build_folders(&service, &cache_dir, settings_cache_enabled)?);
             app.manage(service);
@@ -190,6 +203,7 @@ pub fn run() -> tauri::Result<()> {
             commands::delete_object_version,
             commands::object_acl,
             commands::presign_object,
+            commands::share_link,
             commands::enqueue_uploads,
             commands::enqueue_downloads,
             commands::enqueue_copies,

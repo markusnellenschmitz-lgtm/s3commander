@@ -48,7 +48,8 @@ codegen-units = 1
 strip = true
 
 [lints.rust]
-unsafe_code = "forbid"
+# deny statt forbid: nur adapters/share_sheet.rs braucht COM-Aufrufe und erlaubt sie begründet.
+unsafe_code = "deny"
 missing_debug_implementations = "warn"
 
 [lints.clippy]
@@ -64,3 +65,4 @@ wiremock = "0.6.5"
 
 [target."cfg(windows)".dependencies]
 windows-native-keyring-store = "1.1.0"
+windows = { version = "0.62", features = ["ApplicationModel_DataTransfer", "Foundation", "Win32_Foundation", "Win32_UI_Shell"] }

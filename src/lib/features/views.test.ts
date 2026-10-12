@@ -29,6 +29,8 @@ import { SplitViewModel } from './browser/splitViewModel.svelte';
 import { PanelDragViewModel } from './browser/panelDragViewModel.svelte';
 import { SyncViewModel } from './sync/syncViewModel.svelte';
 import SyncDialog from './sync/SyncDialog.svelte';
+import ShareDialog from './share/ShareDialog.svelte';
+import { ShareDialogViewModel } from './share/shareDialogViewModel.svelte';
 
 /** Schlüssel-Wert-Speicher im Speicher, für Tests ohne localStorage. */
 function memoryStore(): KeyValueStore {
@@ -114,6 +116,7 @@ function mainWindow() {
   const clipboard = new ClipboardViewModel({ paste: (s, t, m) => transfers.copy(s, t, m) });
   const writeText = vi.fn().mockResolvedValue(undefined);
   const details = new DetailsViewModel({ backend, writeText, now: () => NOW });
+  const share = new ShareDialogViewModel({ backend, writeText, now: () => NOW });
   const filter = new ObjectFilterViewModel({ source: vm.source, selection: vm.selection, now: () => NOW });
   const settings = new SettingsViewModel({
     backend,
@@ -127,6 +130,7 @@ function mainWindow() {
     naming,
     clipboard,
     details,
+    share,
     writeText,
   });
   const tabs = new TabsViewModel(vm);
@@ -161,7 +165,9 @@ function mainWindow() {
     oneditconnection,
   });
   render(SyncDialog, { vm: sync });
+  render(ShareDialog, { vm: share });
   return {
+    share,
     sync,
     tabs,
     local,
@@ -902,7 +908,7 @@ describe('Eigenschaften im Hauptfenster', () => {
   });
 
   it('stellt Versionen wieder her, löscht sie nach Rückfrage und ändert die Gültigkeit', async () => {
-    const { vm, details, writeText } = mainWindow();
+    const { vm, details, writeText, backend } = mainWindow();
     await openDaily(vm);
     details.isOpen = true;
     vm.selection.only(vm.source.get(0)!.key);
@@ -933,6 +939,47 @@ describe('Eigenschaften im Hauptfenster', () => {
     expect(within(share).getByLabelText<HTMLInputElement>('Presigned URL').value).toContain('X-Amz-Expires=3600');
     await fireEvent.click(within(share).getByRole('button', { name: 'Presigned URL kopieren' }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('X-Amz-Expires=3600'));
+    const shareLink = vi.spyOn(backend, 'shareLink').mockRejectedValueOnce({ kind: 'share', message: 'kein Dialog' });
+    await fireEvent.click(within(share).getByRole('button', { name: /Teilen/ }));
+    await settle();
+    expect(shareLink).toHaveBeenCalledWith(
+      'db-incr-20261011-0600.tar.zst',
+      expect.stringContaining('X-Amz-Expires=3600'),
+    );
+    expect(within(share).getByRole('alert')).toHaveTextContent('kein Dialog');
+  });
+
+  it('teilt eine Datei über das Kontextmenü mit dem Teilen-Dialog von Windows', async () => {
+    const { vm, backend, share } = mainWindow();
+    await openDaily(vm);
+    const openMenu = () =>
+      fireEvent.contextMenu(screen.getByText('db-incr-20261011-0600.tar.zst'), { clientX: 5, clientY: 5 });
+    await openMenu();
+    await fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Teilen/ }));
+    await settle();
+    const dialog = screen.getByRole('dialog', { name: '„db-incr-20261011-0600.tar.zst“ teilen' });
+    expect(dialog).toHaveTextContent('bis 12.10.2026 15:23:08');
+    expect(dialog).toHaveTextContent('Wer den Link erhält');
+    await fireEvent.change(within(dialog).getByLabelText('Gültigkeit des Links'), { target: { value: '604800' } });
+    await settle();
+    const shareLink = vi.spyOn(backend, 'shareLink');
+    await fireEvent.click(within(dialog).getByRole('button', { name: /Teilen/ }));
+    await settle();
+    expect(shareLink).toHaveBeenCalledWith(
+      'db-incr-20261011-0600.tar.zst',
+      expect.stringContaining('X-Amz-Expires=604800'),
+    );
+    expect(share.isOpen).toBe(false);
+
+    for (const close of [
+      () => fireEvent.click(screen.getByRole('button', { name: 'Schließen' })),
+      () => fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' }),
+    ]) {
+      await openMenu();
+      await fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Teilen/ }));
+      await close();
+      expect(share.isOpen).toBe(false);
+    }
   });
 
   it('bietet Eigenschaften und Presigned URL im Kontextmenü', async () => {
@@ -1000,7 +1047,7 @@ describe('Kontextmenü im Verbindungsbaum', () => {
     expect(writeText).toHaveBeenCalledWith('s3://prod-logs-eu');
     const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     tree.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
     await fireEvent.keyDown(tree, { key: 'ArrowDown' });
   });
 });
@@ -1047,13 +1094,12 @@ describe('Kontextmenü im Hauptfenster', () => {
     expect(actions.menu.state).not.toBeNull();
   });
 
-  it('lässt das Menü außerhalb der Tabelle dem System', async () => {
+  it('unterdrückt außerhalb der Tabelle das Browser-Menü (Teilen, Drucken), außer in Eingabefeldern', async () => {
     const { vm, actions } = mainWindow();
     await openBackups(vm);
-    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
-    screen.getByRole('button', { name: /Hochladen/ }).dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
+    expect(await fireEvent.contextMenu(screen.getByRole('button', { name: /Hochladen/ }))).toBe(false);
     expect(actions.menu.state).toBeNull();
+    expect(await fireEvent.contextMenu(screen.getByRole('searchbox'))).toBe(true);
     await fireEvent.keyDown(screen.getByRole('button', { name: /Hochladen/ }), { key: 'F10', shiftKey: true });
     expect(actions.menu.state).toBeNull();
   });

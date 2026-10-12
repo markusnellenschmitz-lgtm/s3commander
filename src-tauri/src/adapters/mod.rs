@@ -11,5 +11,7 @@ pub mod local_files;
 pub mod profile_file;
 pub mod s3;
 pub mod settings_file;
+#[cfg(windows)]
+pub mod share_sheet;
 pub mod sqlite_cache;
 pub mod tauri_runtime;

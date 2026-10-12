@@ -9,6 +9,7 @@ use super::local_files::StdLocalFiles;
 use super::profile_file::JsonProfileRepository;
 use super::s3::factory::HttpStoreFactory;
 use super::settings_file::JsonSettingsRepository;
+use super::share_sheet::WindowsShareSheet;
 use super::sqlite_cache::SqliteListingCache;
 use super::tauri_runtime::{TauriSpawner, TauriTransferEvents};
 use crate::application::connection::ConnectionTest;
@@ -21,6 +22,7 @@ use crate::application::listing::ListingSummary;
 use crate::application::local_browse::list_local;
 use crate::application::naming::NamingService;
 use crate::application::settings::SettingsService;
+use crate::application::share;
 use crate::application::sync::{SyncPreview, SyncRequest, SyncService, SyncWork};
 use crate::application::transfers::{TransferManager, TransferSettings};
 use crate::domain::credentials::Credentials;
@@ -406,6 +408,13 @@ pub fn presign_object(
     expires_secs: u32,
 ) -> Result<String, CommandError> {
     Ok(details.presign(at(&profile_id, &bucket, &key), expires_secs)?)
+}
+
+/// Gibt einen Link an den Teilen-Dialog von Windows. Bewusst synchron: Tauri führt synchrone
+/// Befehle auf dem Hauptthread aus, und der Dialog muss auf dem Thread des Fensters starten.
+#[tauri::command]
+pub fn share_link(sheet: State<'_, WindowsShareSheet>, title: String, url: String) -> Result<(), CommandError> {
+    Ok(share::share_link(sheet.inner(), &title, &url)?)
 }
 
 // ---------- Neuer Ordner, Umbenennen ----------

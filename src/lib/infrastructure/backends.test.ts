@@ -141,6 +141,7 @@ describe('createTauriBackend', () => {
     await backend.deleteObjectVersion(at, 'v2');
     await backend.objectAcl(at);
     await backend.presignObject(at, 3600);
+    await backend.shareLink('k', 'https://b/k');
     expect(call.mock.calls).toEqual([
       ['object_head', at],
       ['save_object_metadata', { ...at, metadata }],
@@ -151,6 +152,7 @@ describe('createTauriBackend', () => {
       ['delete_object_version', { ...at, versionId: 'v2' }],
       ['object_acl', at],
       ['presign_object', { ...at, expiresSecs: 3600 }],
+      ['share_link', { title: 'k', url: 'https://b/k' }],
     ]);
   });
 

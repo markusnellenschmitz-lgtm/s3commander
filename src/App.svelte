@@ -14,6 +14,8 @@
   import DeleteDialog from './lib/features/deletion/DeleteDialog.svelte';
   import NameDialog from './lib/features/naming/NameDialog.svelte';
   import { NameDialogViewModel } from './lib/features/naming/nameDialogViewModel.svelte';
+  import ShareDialog from './lib/features/share/ShareDialog.svelte';
+  import { ShareDialogViewModel } from './lib/features/share/shareDialogViewModel.svelte';
   import { ClipboardViewModel } from './lib/features/clipboard/clipboardViewModel.svelte';
   import { ObjectActionsViewModel } from './lib/features/browser/objectActionsViewModel.svelte';
   import { DetailsViewModel } from './lib/features/details/detailsViewModel.svelte';
@@ -97,6 +99,7 @@
     paste: (selection, target, move) => transfers.copy(selection, target, move),
   });
   const details = new DetailsViewModel({ backend, writeText, onChanged: refreshFolder });
+  const share = new ShareDialogViewModel({ backend, writeText });
   const filter = new ObjectFilterViewModel({ source: browser.source, selection: browser.selection });
   const view = new ViewPreferences(createLocalStorageStore());
   browser.compact = view.value.compact;
@@ -124,6 +127,7 @@
     naming,
     clipboard,
     details,
+    share,
     writeText,
   });
 
@@ -172,3 +176,4 @@
 <SyncDialog vm={sync} />
 <DeleteDialog vm={deletion} />
 <NameDialog vm={naming} />
+<ShareDialog vm={share} />

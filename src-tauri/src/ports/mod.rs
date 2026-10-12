@@ -10,6 +10,7 @@ use crate::domain::local_dir::LocalEntry;
 use crate::domain::object::{BucketInfo, ListPage, ListRequest};
 use crate::domain::profile::ConnectionProfile;
 use crate::domain::settings::AppSettings;
+use crate::domain::share::{ShareError, SharedLink};
 use crate::domain::timestamp::unix_ms;
 use crate::domain::transfer::{
     ByteCounter, Checksums, CompletedPart, FileRange, LocalFile, ObjectRef, TransferUpdate, UploadedPart,
@@ -461,4 +462,13 @@ impl<T: Clock + ?Sized> Clock for Arc<T> {
     fn monotonic(&self) -> Instant {
         (**self).monotonic()
     }
+}
+
+/// Teilen-Dialog des Betriebssystems.
+pub trait ShareSheet: Send + Sync {
+    /// Zeigt den Dialog mit dem Link; die Auswahl des Ziels trifft der Nutzer dort.
+    ///
+    /// # Errors
+    /// `Platform`, wenn der Dialog nicht geöffnet werden kann.
+    fn show(&self, link: &SharedLink) -> Result<(), ShareError>;
 }

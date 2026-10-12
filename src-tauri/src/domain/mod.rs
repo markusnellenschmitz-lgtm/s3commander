@@ -15,6 +15,7 @@ pub mod object;
 pub mod profile;
 pub mod provider;
 pub mod settings;
+pub mod share;
 pub mod sync;
 pub mod timestamp;
 pub mod transfer;

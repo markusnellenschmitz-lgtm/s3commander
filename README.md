@@ -62,7 +62,9 @@ WebView2 Runtime, die unter Windows 11 bereits vorhanden ist.
 
 - Neuer Ordner, Umbenennen (F2), Löschen mit Vorschau, auch für große Mengen in Paketen.
 - Eigenschaften (Alt+Enter): Metadaten bearbeiten, Tags, Versionen, Zugriffsrechte (ACL),
-  Verschlüsselung und vorsignierte Links zum Teilen.
+  Verschlüsselung und vorsignierte Links.
+- Teilen (Rechtsklick › Teilen …): zeitlich begrenzter Link über den Teilen-Dialog von Windows an
+  Mail, WhatsApp, Teams, die Umgebungsfreigabe oder als QR-Code aufs Handy.
 
 **Oberfläche**
 

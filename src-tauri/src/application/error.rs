@@ -4,6 +4,7 @@ use crate::domain::details::DetailsError;
 use crate::domain::error::{CacheError, CredentialError, ErrorReport, RepositoryError, StoreError};
 use crate::domain::naming::NameError;
 use crate::domain::settings::SettingsError;
+use crate::domain::share::ShareError;
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AppError {
@@ -33,6 +34,8 @@ pub enum AppError {
     InvalidSettings(#[from] SettingsError),
     #[error(transparent)]
     Cache(#[from] CacheError),
+    #[error(transparent)]
+    Share(#[from] ShareError),
 }
 
 impl From<AppError> for ErrorReport {
@@ -51,6 +54,7 @@ impl From<AppError> for ErrorReport {
             AppError::InvalidDetails(_) => "invalidDetails",
             AppError::InvalidSettings(_) => "invalidSettings",
             AppError::Cache(_) => "cache",
+            AppError::Share(_) => "share",
         };
         Self {
             kind,
@@ -89,6 +93,7 @@ mod tests {
                 "invalidSettings",
             ),
             (AppError::Cache(CacheError::Storage("x".into())), "cache"),
+            (AppError::Share(ShareError::Platform("x".into())), "share"),
             (AppError::Store(StoreError::Timeout), "timeout"),
         ];
         for (error, kind) in cases {

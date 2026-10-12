@@ -1,7 +1,7 @@
 // Datei-Aktionen im offenen Ordner an einer Stelle: Werkzeugleiste, Tastenkürzel und Kontextmenü
 // nutzen dieselben Methoden. Das Kontextmenü zeigt nur, was zur Auswahl passt.
 
-import type { ObjectSelection } from '../../core/backend';
+import type { ObjectAt, ObjectSelection } from '../../core/backend';
 import { ContextMenuController } from '../../core/contextMenu.svelte';
 import { SEPARATOR, tidySeparators, type MenuEntry, type MenuItem } from '../../core/menu';
 import type { SpriteIconName } from '../../ui/icons/sprite';
@@ -9,6 +9,7 @@ import type { ClipboardViewModel } from '../clipboard/clipboardViewModel.svelte'
 import type { DeleteViewModel } from '../deletion/deleteViewModel.svelte';
 import type { DetailsViewModel } from '../details/detailsViewModel.svelte';
 import type { NameDialogViewModel } from '../naming/nameDialogViewModel.svelte';
+import type { ShareDialogViewModel } from '../share/shareDialogViewModel.svelte';
 import type { TransfersViewModel } from '../transfers/transfersViewModel.svelte';
 import type { BrowserViewModel } from './browserViewModel.svelte';
 
@@ -24,6 +25,7 @@ export type ObjectActionId =
   | 'upload'
   | 'refresh'
   | 'properties'
+  | 'share'
   | 'presignedUrl'
   | 'delete';
 
@@ -37,6 +39,7 @@ export interface ObjectActionsDeps {
   naming: NameDialogViewModel;
   clipboard: ClipboardViewModel;
   details: DetailsViewModel;
+  share: ShareDialogViewModel;
   /** Text in die Zwischenablage von Windows schreiben. */
   writeText: (text: string) => Promise<void>;
 }
@@ -74,6 +77,7 @@ export class ObjectActionsViewModel {
       upload: () => this.upload(),
       refresh: () => deps.browser.refresh(),
       properties: () => (deps.details.isOpen = true),
+      share: () => this.share(),
       presignedUrl: () => this.copyPresignedUrl(),
       delete: () => this.remove(),
     });
@@ -129,16 +133,16 @@ export class ObjectActionsViewModel {
     void this.#deps.writeText(entries.map((e) => `s3://${location.bucket}/${e.key}`).join('\n'));
   }
 
+  /** Dialog „Teilen“ für eine einzeln gewählte Datei. */
+  share(): void {
+    const at = this.#singleFile();
+    if (at) this.#deps.share.open(at);
+  }
+
   /** Vorsignierter Link (24 Stunden) für eine einzeln gewählte Datei. */
   copyPresignedUrl(): void {
-    const location = this.#deps.browser.location;
-    const [entry, ...rest] = this.#deps.browser.selectedEntries;
-    if (!location || !entry || entry.isPrefix || rest.length > 0) return;
-    void this.#deps.details.copyPresignedUrl({
-      profileId: location.profileId,
-      bucket: location.bucket,
-      key: entry.key,
-    });
+    const at = this.#singleFile();
+    if (at) void this.#deps.details.copyPresignedUrl(at);
   }
 
   // ---------- Kontextmenü ----------
@@ -190,6 +194,7 @@ export class ObjectActionsViewModel {
       this.#item('copyPath', single ? 'Pfad kopieren' : 'Pfade kopieren', 'clipboard-copy'),
       this.#item('newFolder', 'Neuer Ordner', 'folder-plus'),
       SEPARATOR,
+      this.#item('share', 'Teilen …', 'share', !singleFile),
       this.#item('presignedUrl', 'Presigned URL kopieren', 'link', !singleFile),
       this.#item('properties', 'Eigenschaften', 'panel-right'),
       SEPARATOR,
@@ -199,6 +204,14 @@ export class ObjectActionsViewModel {
 
   #item(id: ObjectActionId, label: string, icon: SpriteIconName, disabled = false): ObjectMenuItem {
     return { id, label, icon, kbd: KBD[id], disabled };
+  }
+
+  /** Adresse der Auswahl, wenn genau eine Datei gewählt ist. */
+  #singleFile(): ObjectAt | null {
+    const location = this.#deps.browser.location;
+    const [entry, ...rest] = this.#deps.browser.selectedEntries;
+    if (!location || !entry || entry.isPrefix || rest.length > 0) return null;
+    return { profileId: location.profileId, bucket: location.bucket, key: entry.key };
   }
 
   #withSelection(action: (selection: ObjectSelection) => void): void {

@@ -3,7 +3,6 @@ import {
   metadataNameError,
   metadataValueError,
   permissionSummary,
-  shareUntilText,
   shortVersion,
   encryptionText,
   tagError,
@@ -43,9 +42,7 @@ describe('Regeln der Objekt-Details', () => {
     expect(permissionSummary({ owner: null, grants: [publicAcp] })).toMatch(/^Nicht öffentlich/);
   });
 
-  it('formatiert Gültigkeit und Version-IDs', () => {
-    const now = new Date(2026, 9, 11, 15, 23, 8).getTime();
-    expect(shareUntilText(now, 24 * 60 * 60)).toBe('bis 12.10.2026 15:23:08');
+  it('kürzt Version-IDs', () => {
     expect(shortVersion('p7Kd2sVb9QeR1aXc')).toBe('p7Kd2sVb…');
     expect(shortVersion('null')).toBe('null');
     expect(encryptionText(null)).toBe('Keine');

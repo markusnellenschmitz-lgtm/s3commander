@@ -181,10 +181,18 @@
   }
 
   /** Rechtsklick in der Objekttabelle: Menü für die Zeile oder für den Ordner. */
+  /** Hier bleibt das Menü von WebView2 (Ausschneiden, Kopieren, Einfügen) erhalten. */
+  const EDITABLE = 'input, textarea, [contenteditable="true"]';
+
+  /**
+   * Eigenes Menü in der Objektliste; sonst wird das Browser-Menü von WebView2 (Teilen, Drucken,
+   * Neu laden) unterdrückt, weil es in einer Desktop-App nichts zu suchen hat.
+   */
   function onContextMenu(e: MouseEvent) {
     const target = e.target instanceof Element ? e.target : null;
-    if (!target?.closest(BUCKET_TABLE)) return;
+    if (target?.closest(EDITABLE)) return;
     e.preventDefault();
+    if (!target?.closest(BUCKET_TABLE)) return;
     const row = target.closest<HTMLElement>('[data-row-index]');
     if (row) actions.openForRow(Number(row.dataset.rowIndex), e.clientX, e.clientY);
     else actions.openForBackground(e.clientX, e.clientY);

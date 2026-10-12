@@ -15,6 +15,7 @@ pub mod naming;
 pub mod parts;
 pub mod relay;
 pub mod settings;
+pub mod share;
 pub mod sync;
 pub mod transfers;
 pub mod upload;

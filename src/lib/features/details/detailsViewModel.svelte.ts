@@ -12,8 +12,11 @@ import type {
   ObjectVersion,
 } from '../../core/backend';
 import { toBackendError } from '../../core/backend';
+import { baseName } from '../../core/objectName';
 import type { S3Entry } from '../objects/entry';
-import { DEFAULT_SHARE_SECS, tagError } from './detailsRules';
+import { ShareLink } from '../share/shareLink.svelte';
+import { DEFAULT_SHARE_SECS } from '../share/shareRules';
+import { tagError } from './detailsRules';
 import { MetadataEditor } from './metadataEditor.svelte';
 
 export type DetailsSection = 'general' | 'metadata' | 'tags' | 'versions' | 'share' | 'permissions';
@@ -59,13 +62,13 @@ export class DetailsViewModel {
   actionError = $state<{ section: DetailsSection; error: BackendError } | null>(null);
   busy = $state(false);
   tagDraft = $state<{ key: string; value: string } | null>(null);
-  shareSecs = $state(DEFAULT_SHARE_SECS);
-  shareUrl = $state<string | null>(null);
+  /** Abschnitt „Freigabe“: vorsignierter Link des gezeigten Objekts. */
+  readonly share: ShareLink;
   pendingVersionDelete = $state<ObjectVersion | null>(null);
 
   readonly #backend: BackendPort;
   readonly #writeText: DetailsDeps['writeText'];
-  readonly #now: () => number;
+
   readonly #onChanged: DetailsDeps['onChanged'];
   /** Erhöht sich bei jedem neuen Ziel; verspätete Antworten werden verworfen. */
   #loadToken = 0;
@@ -73,12 +76,8 @@ export class DetailsViewModel {
   constructor(deps: DetailsDeps) {
     this.#backend = deps.backend;
     this.#writeText = deps.writeText;
-    this.#now = deps.now ?? Date.now;
     this.#onChanged = deps.onChanged;
-  }
-
-  get nowMs(): number {
-    return this.#now();
+    this.share = new ShareLink(deps);
   }
 
   toggle(): void {
@@ -123,19 +122,19 @@ export class DetailsViewModel {
     const token = ++this.#loadToken;
     this.actionError = null;
     this.tagDraft = null;
-    const [head, tags, versions, acl, url] = await Promise.all([
+    const [head, tags, versions, acl] = await Promise.all([
       load(() => this.#backend.objectHead(at)),
       load(() => this.#backend.objectTags(at)),
       load(() => this.#backend.objectVersions(at)),
       load(() => this.#backend.objectAcl(at)),
-      load(() => this.#backend.presignObject(at, this.shareSecs)),
+      this.share.load(at),
     ]);
     if (token !== this.#loadToken) return;
     this.head = head;
     this.tags = tags;
     this.versions = versions;
     this.acl = acl;
-    this.shareUrl = url.value;
+
     this.metadata.load(head.value?.metadata ?? []);
   }
 
@@ -194,17 +193,9 @@ export class DetailsViewModel {
 
   // ---------- Freigabe ----------
 
-  async setShareDuration(secs: number): Promise<void> {
-    this.shareSecs = secs;
-    const at = this.target;
-    if (!at) return;
-    await this.#act('share', async () => {
-      this.shareUrl = await this.#backend.presignObject(at, secs);
-    });
-  }
-
-  async copyShareUrl(): Promise<void> {
-    if (this.shareUrl) await this.#writeText(this.shareUrl);
+  /** „Teilen …“ im Abschnitt Freigabe: Link mit dem Dateinamen an den Teilen-Dialog von Windows. */
+  async shareWithWindows(): Promise<void> {
+    if (this.target) await this.share.share(baseName(this.target.key));
   }
 
   /** Kontextmenü „Presigned URL kopieren“: Link mit 24 Stunden Gültigkeit ohne offenes Panel. */
@@ -277,7 +268,7 @@ export class DetailsViewModel {
     this.tags = EMPTY;
     this.versions = EMPTY;
     this.acl = EMPTY;
-    this.shareUrl = null;
+    this.share.clear();
     this.metadata.load([]);
   }
 }

@@ -7,14 +7,8 @@
   import { countText, formatBytes, formatBytesExact, formatDate, formatDateSeconds } from '../../core/format';
   import { ICON_BY_KIND, kindOf } from '../objects/entry';
   import type { DetailsSection, DetailsViewModel } from './detailsViewModel.svelte';
-  import {
-    MAX_TAGS,
-    SHARE_DURATIONS,
-    encryptionText,
-    permissionSummary,
-    shareUntilText,
-    shortVersion,
-  } from './detailsRules';
+  import ShareLinkFields from '../share/ShareLinkFields.svelte';
+  import { MAX_TAGS, encryptionText, permissionSummary, shortVersion } from './detailsRules';
 
   interface Props {
     vm: DetailsViewModel;
@@ -272,31 +266,7 @@
         {#if !vm.collapsed.share}
           {@render problem('share', null)}
           <div class="share">
-            <div class="share-row">
-              <span class="s3-muted share-label">Gültig für</span>
-              <label class="s3-input s3-input-sm s3-select duration">
-                <select
-                  aria-label="Gültigkeit des Links"
-                  value={vm.shareSecs}
-                  onchange={(e) => vm.setShareDuration(Number(e.currentTarget.value))}
-                >
-                  {#each SHARE_DURATIONS as duration (duration.secs)}
-                    <option value={duration.secs}>{duration.label}</option>
-                  {/each}
-                </select>
-              </label>
-              <span class="s3-muted s3-num">{shareUntilText(vm.nowMs, vm.shareSecs)}</span>
-            </div>
-            <label class="s3-input s3-input-sm">
-              <SpriteIcon name="link" />
-              <input class="s3-mono" readonly value={vm.shareUrl ?? ''} aria-label="Presigned URL" />
-              <button
-                class="s3-btn s3-btn-ghost s3-btn-sm"
-                aria-label="Presigned URL kopieren"
-                disabled={!vm.shareUrl}
-                onclick={() => vm.copyShareUrl()}><SpriteIcon name="copy" />Kopieren</button
-              >
-            </label>
+            <ShareLinkFields link={vm.share} onshare={() => vm.shareWithWindows()} />
           </div>
         {/if}
       </section>
@@ -387,22 +357,7 @@
     width: 110px;
   }
   .share {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
     padding: 10px var(--space-16) var(--space-12);
     border-bottom: 1px solid var(--border-subtle);
-    font-size: var(--text-12);
-  }
-  .share-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-8);
-  }
-  .share-label {
-    width: 72px;
-  }
-  .duration {
-    width: 120px;
   }
 </style>

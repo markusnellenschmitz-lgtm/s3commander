@@ -6,6 +6,7 @@ import { DeleteViewModel } from '../deletion/deleteViewModel.svelte';
 import { NameDialogViewModel } from '../naming/nameDialogViewModel.svelte';
 import { ClipboardViewModel } from '../clipboard/clipboardViewModel.svelte';
 import { DetailsViewModel } from '../details/detailsViewModel.svelte';
+import { ShareDialogViewModel } from '../share/shareDialogViewModel.svelte';
 import { createFakeBackend } from '../../infrastructure/fakeBackend';
 import { createFakeFilePicker } from '../../infrastructure/filePickers';
 import { BACKUPS_PREFIX } from '../../infrastructure/fixtures/buckets';
@@ -20,6 +21,7 @@ let naming: NameDialogViewModel;
 let clipboard: ClipboardViewModel;
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 let details: DetailsViewModel;
+let share: ShareDialogViewModel;
 let actions: ObjectActionsViewModel;
 
 beforeEach(async () => {
@@ -31,7 +33,8 @@ beforeEach(async () => {
   clipboard = new ClipboardViewModel({ paste: (s, t, m) => transfers.copy(s, t, m) });
   writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
   details = new DetailsViewModel({ backend, writeText });
-  actions = new ObjectActionsViewModel({ browser, transfers, deletion, naming, clipboard, details, writeText });
+  share = new ShareDialogViewModel({ backend, writeText });
+  actions = new ObjectActionsViewModel({ browser, transfers, deletion, naming, clipboard, details, share, writeText });
   await browser.loadProfiles();
   browser.openBucket('aws-prod', 'prod-backups-eu');
   browser.openPrefix(BACKUPS_PREFIX);
@@ -74,6 +77,7 @@ describe('Kontextmenü', () => {
       'copyPath',
       'newFolder',
       '|',
+      'share-',
       'presignedUrl-',
       'properties',
       '|',
@@ -97,6 +101,17 @@ describe('Kontextmenü', () => {
     expect(entries.find((e) => e.id === 'delete')?.danger).toBe(true);
   });
 
+  it('öffnet „Teilen …“ nur für eine einzelne Datei', () => {
+    actions.share();
+    browser.selection.only(daily().key);
+    actions.share();
+    expect(share.isOpen).toBe(false);
+    browser.selection.only(file().key);
+    actions.openAt(1, 1);
+    actions.menu.run('share');
+    expect([share.isOpen, share.name]).toEqual([true, file().key.split('/').pop()]);
+  });
+
   it('öffnet ohne offenen Ordner kein Menü und schließt nach der Wahl', async () => {
     const empty = new ObjectActionsViewModel({
       browser: new BrowserViewModel({ backend: createFakeBackend() }),
@@ -105,6 +120,7 @@ describe('Kontextmenü', () => {
       naming,
       clipboard,
       details,
+      share,
       writeText,
     });
     empty.openAt(1, 1);
@@ -181,6 +197,7 @@ describe('Aktionen', () => {
       naming,
       clipboard,
       details,
+      share,
       writeText,
     });
     const create = vi.spyOn(naming, 'openCreateFolder');

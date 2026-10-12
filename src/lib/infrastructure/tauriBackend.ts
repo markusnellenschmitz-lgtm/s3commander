@@ -63,6 +63,7 @@ export function createTauriBackend(
     deleteObjectVersion: (at, versionId) => call('delete_object_version', { ...at, versionId }),
     objectAcl: (at) => call('object_acl', { ...at }),
     presignObject: (at, expiresSecs) => call('presign_object', { ...at, expiresSecs }),
+    shareLink: (title, url) => call('share_link', { title, url }),
     createFolder: (folder, name) => call('create_folder', { ...folder, name }),
     renameObject(folder, item, newName, onProgress) {
       const channel = makeChannel<RenameProgress>();

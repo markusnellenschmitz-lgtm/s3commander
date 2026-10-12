@@ -394,6 +394,8 @@ export interface BackendPort {
   objectAcl(at: ObjectAt): Promise<ObjectAcl>;
   /** Vorsignierter Link zum Herunterladen, höchstens sieben Tage gültig. */
   presignObject(at: ObjectAt, expiresSecs: number): Promise<string>;
+  /** Gibt einen Link an den Teilen-Dialog von Windows (Mail, Messenger, Umgebungsfreigabe, QR-Code). */
+  shareLink(title: string, url: string): Promise<void>;
   /** Legt im Ordner einen neuen Ordner an und liefert seinen Key. */
   createFolder(folder: FolderLocation, name: string): Promise<string>;
   /** Benennt eine Datei oder einen Ordner um: kopieren, dann Originale löschen. */

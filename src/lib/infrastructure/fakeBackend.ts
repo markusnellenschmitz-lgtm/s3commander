@@ -336,6 +336,8 @@ export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort
     deleteObjectVersion: async (at, versionId) => details.deleteVersion(at, versionId),
     objectAcl: async (at) => details.acl(at),
     presignObject: async (at, expiresSecs) => details.presign(at, expiresSecs),
+    // Ohne Windows gibt es keinen Teilen-Dialog; die Vorschau nimmt den Link stillschweigend an.
+    shareLink: async () => {},
     async createFolder(folder, name) {
       ensureProfile(folder.profileId);
       const key = ensureFreeName(folder.bucket, folder.prefix, name, true);
