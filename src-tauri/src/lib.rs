@@ -4,8 +4,11 @@
 //! - `domain`: reine Typen und Regeln
 //! - `ports`: Schnittstellen nach außen
 //! - `application`: Anwendungsfälle
-//! - `adapters`: Implementierungen der Ports (S3 über HTTP, Windows-Anmeldespeicher, Uhr,
-//!   Profildatei, lokale Dateien, Tauri-Laufzeit) und die Tauri-Befehle als treibender Adapter
+//! - `adapters`: Implementierungen der Ports (S3 über HTTP, Speicher für Zugangsdaten des Systems,
+//!   Uhr, Profildatei, lokale Dateien, Tauri-Laufzeit) und die Tauri-Befehle als treibender Adapter
+//!
+//! Läuft unter Windows und Linux. Was sich unterscheidet, steckt in den Adaptern
+//! (`credential_store`, `NativeShareSheet`, `local_files`) und in `build_share_sheet`.
 //!
 //! Diese Datei ist die Kompositionswurzel und verdrahtet Adapter mit Anwendungsfällen.
 
@@ -14,6 +17,7 @@ pub mod application;
 pub mod domain;
 pub mod ports;
 
+use adapters::NativeShareSheet;
 use adapters::clock::SystemClock;
 use adapters::commands::{
     self, AppDeletes, AppDetails, AppFolders, AppNaming, AppService, AppSettingsService, AppSync, SharedService,
@@ -24,7 +28,7 @@ use adapters::local_files::StdLocalFiles;
 use adapters::profile_file::{JsonProfileRepository, PROFILE_FILE_NAME};
 use adapters::s3::factory::HttpStoreFactory;
 use adapters::settings_file::{JsonSettingsRepository, SETTINGS_FILE_NAME};
-use adapters::share_sheet::WindowsShareSheet;
+
 use adapters::sqlite_cache::{CACHE_FILE_NAME, SqliteListingCache};
 use adapters::tauri_runtime::{TauriSpawner, TauriTransferEvents};
 use application::connections::ConnectionService;
@@ -41,17 +45,14 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, Runtime};
 
 /// Baut den Anwendungsdienst mit den echten Adaptern.
-///
-/// # Errors
-///
-/// Wenn der Windows-Anmeldeinformationsspeicher nicht verfügbar ist.
-pub fn build_service(config_dir: &Path) -> Result<AppService, domain::error::CredentialError> {
-    Ok(ConnectionService::new(
+#[must_use]
+pub fn build_service(config_dir: &Path) -> AppService {
+    ConnectionService::new(
         JsonProfileRepository::new(config_dir.join(PROFILE_FILE_NAME)),
-        KeyringCredentialStore::native(DEFAULT_SERVICE)?,
+        KeyringCredentialStore::native(DEFAULT_SERVICE),
         HttpStoreFactory::new(SystemClock),
         SystemClock,
-    ))
+    )
 }
 
 /// Baut den Einstellungsdienst; die Datei liegt neben den Profilen.
@@ -124,14 +125,23 @@ pub fn build_details(service: &SharedService) -> AppDetails {
 }
 
 /// Name des Hauptfensters aus `tauri.conf.json`.
+#[cfg(windows)]
 const MAIN_WINDOW: &str = "main";
 
 /// Teilen-Dialog für das Hauptfenster.
-fn build_share_sheet(app: &tauri::App) -> tauri::Result<WindowsShareSheet> {
+#[cfg(windows)]
+fn build_share_sheet(app: &tauri::App) -> tauri::Result<NativeShareSheet> {
     let window = app
         .get_webview_window(MAIN_WINDOW)
         .ok_or(tauri::Error::WindowNotFound)?;
-    Ok(WindowsShareSheet::new(window.hwnd()?.0 as isize))
+    Ok(NativeShareSheet::new(window.hwnd()?.0 as isize))
+}
+
+/// Ohne Teilen-Dialog des Systems.
+#[cfg(not(windows))]
+#[allow(clippy::unnecessary_wraps)] // Gleiche Signatur wie die Windows-Fassung.
+fn build_share_sheet(_app: &tauri::App) -> tauri::Result<NativeShareSheet> {
+    Ok(NativeShareSheet::default())
 }
 
 /// Startet die Anwendung und blockiert, bis das letzte Fenster geschlossen ist.
@@ -151,7 +161,7 @@ pub fn run() -> tauri::Result<()> {
                 )?;
             }
             let config_dir = app.path().app_config_dir()?;
-            let service: SharedService = Arc::new(build_service(&config_dir)?);
+            let service: SharedService = Arc::new(build_service(&config_dir));
             let settings = build_settings(&config_dir);
             let settings_cache_enabled = settings.current().cache.enabled;
             let transfers = build_transfers(
@@ -225,17 +235,17 @@ mod tests {
 
     #[test]
     fn builds_the_service_with_real_adapters() {
-        let _guard = adapters::credential_store::lock_windows_store();
+        let _guard = adapters::credential_store::lock_native_store();
         let dir = tempfile::tempdir().unwrap();
-        let service = build_service(dir.path()).unwrap();
+        let service = build_service(dir.path());
         assert_eq!(service.list_profiles().unwrap(), Vec::new());
     }
 
     #[test]
     fn builds_the_transfer_manager_sharing_the_service() {
-        let _guard = adapters::credential_store::lock_windows_store();
+        let _guard = adapters::credential_store::lock_native_store();
         let dir = tempfile::tempdir().unwrap();
-        let service: SharedService = Arc::new(build_service(dir.path()).unwrap());
+        let service: SharedService = Arc::new(build_service(dir.path()));
         let app = tauri::test::mock_app();
         let transfers = build_transfers(&service, app.handle().clone(), TransferSettings::default());
         assert_eq!(transfers.snapshots(), Vec::new());
@@ -253,9 +263,9 @@ mod tests {
 
     #[test]
     fn builds_the_delete_service_sharing_the_service() {
-        let _guard = adapters::credential_store::lock_windows_store();
+        let _guard = adapters::credential_store::lock_native_store();
         let dir = tempfile::tempdir().unwrap();
-        let service: SharedService = Arc::new(build_service(dir.path()).unwrap());
+        let service: SharedService = Arc::new(build_service(dir.path()));
         let deletes = build_deletes(&service);
         assert!(!deletes.cancel("delete-1"));
         let _naming = build_naming(&service);

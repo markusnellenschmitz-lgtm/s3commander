@@ -908,6 +908,7 @@ mod tests {
     use crate::application::parts::RetryPolicy;
     use crate::application::test_support::{
         FakeClock, FakeFiles, FakeProvider, FakeStore, FileCall, RecordingEvents, TokioSpawner, TransferCall,
+        local_path,
     };
     use crate::domain::error::ServiceError;
     use crate::domain::multipart::MIB;
@@ -1214,7 +1215,7 @@ mod tests {
 
     async fn enqueue_download(s: &Setup, items: &[SelectedItem]) -> Vec<TransferId> {
         s.manager
-            .enqueue_downloads("p1", "media", "video/", items, Path::new(r"D:\Ziel"))
+            .enqueue_downloads("p1", "media", "video/", items, Path::new("Ziel"))
             .await
             .unwrap()
     }
@@ -1241,10 +1242,10 @@ mod tests {
         let snapshots = s.manager.snapshots();
         assert_eq!(snapshots[0].direction, Direction::Download);
         assert_eq!(snapshots[0].name, "film.mkv");
-        assert_eq!(snapshots[0].local_path, r"D:\Ziel\film.mkv");
+        assert_eq!(snapshots[0].local_path, local_path(&["Ziel", "film.mkv"]));
         assert_eq!((snapshots[0].done_bytes, snapshots[0].part_count), (12 * MIB, 3));
         assert_eq!(snapshots[1].key, "video/clips/a.mp4");
-        assert_eq!(snapshots[1].local_path, r"D:\Ziel\clips\a.mp4");
+        assert_eq!(snapshots[1].local_path, local_path(&["Ziel", "clips", "a.mp4"]));
         let completed = s
             .manager
             .inner
@@ -1280,7 +1281,13 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(discarded, [r"D:\Ziel\b.bin.s3part", r"D:\Ziel\a.bin.s3part"]);
+        assert_eq!(
+            discarded,
+            [
+                local_path(&["Ziel", "b.bin.s3part"]),
+                local_path(&["Ziel", "a.bin.s3part"])
+            ]
+        );
     }
 
     #[tokio::test]
@@ -1479,7 +1486,7 @@ mod tests {
             conflict: ConflictPolicy::Skip,
             ..s.manager.settings()
         });
-        s.manager.inner.files.set_existing(r"D:\Ziel\a.bin", 1);
+        s.manager.inner.files.set_existing(&local_path(&["Ziel", "a.bin"]), 1);
         enqueue_download(
             &s,
             &[selected_item("video/a.bin", false), selected_item("video/b.bin", false)],

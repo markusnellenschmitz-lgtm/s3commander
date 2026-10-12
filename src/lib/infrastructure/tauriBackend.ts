@@ -4,6 +4,7 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { BackendPort, DeleteProgress, FolderPage, RenameProgress, TransferUpdate } from '../core/backend';
+import { detectPlatform } from '../core/platform';
 
 type Invoke = typeof invoke;
 type Listen = typeof listen;
@@ -16,8 +17,10 @@ export function createTauriBackend(
   call: Invoke = invoke,
   makeChannel: ChannelFactory = () => new Channel(),
   subscribe: Listen = listen,
+  userAgent: string = navigator.userAgent,
 ): BackendPort {
   return {
+    platform: detectPlatform(userAgent),
     listPresets: () => call('list_presets'),
     getSettings: () => call('get_settings'),
     saveSettings: (value) => call('save_settings', { value }),

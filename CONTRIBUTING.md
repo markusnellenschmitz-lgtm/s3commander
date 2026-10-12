@@ -25,7 +25,7 @@ src-tauri/src/
   domain/        Reine Typen und Regeln (Teilgrößen, Pfade, Fehler). Kein IO, keine Abhängigkeit nach außen.
   application/   Anwendungsfälle (Listing, Upload, Download, Sync). Sprechen nur mit Ports.
   ports/         Traits: ObjectStore, ListingCache, CredentialStore, Clock, FileSystem.
-  adapters/      Implementierungen: S3 über HTTP (SigV4), SQLite-Cache, Windows Credential Manager,
+    adapters/      Implementierungen: S3 über HTTP (SigV4), SQLite-Cache, Speicher für Zugangsdaten des Systems,
                  lokales Dateisystem. Treibender Adapter: Tauri-Commands und Events.
   lib.rs         Komposition: verdrahtet Adapter mit Anwendungsfällen.
 ```
@@ -37,8 +37,12 @@ gegen die offiziellen AWS-Testvektoren.
 Backend-Regeln:
 
 - Kein AWS-SDK: S3-REST-API mit eigener SigV4-Signatur (`adapters/s3/sigv4.rs`).
-- TLS über SChannel (`native-tls`), damit der Windows-Zertifikatspeicher gilt.
-- Zugangsdaten nur im Windows-Anmeldeinformationsspeicher (`adapters/credential_store.rs`), nie in Dateien oder Logs.
+- TLS über `native-tls`: SChannel unter Windows, OpenSSL unter Linux, damit die Zertifikate des Systems gelten.
+- Zugangsdaten nur im Speicher des Systems (`adapters/credential_store.rs`), nie in Dateien oder Logs:
+  Windows-Anmeldeinformationsspeicher bzw. Secret Service unter Linux.
+- Läuft unter Windows und Linux. Plattformabhängiges steht nur in Adaptern (`#[cfg(windows)]`,
+  `#[cfg(target_os = "linux")]`) und in `lib.rs`. Tests bauen Pfade mit `Path::join` bzw.
+  `test_support::local_path`, nie als `D:\…`; die CI prüft beide Plattformen.
 - Clippy mit `pedantic` und `-D warnings`; `unwrap`/`expect` nur in Tests.
 - Bei wenig freiem Arbeitsspeicher mit `CARGO_BUILD_JOBS=2` bauen.
 
@@ -60,6 +64,10 @@ src/
 
 Abhängigkeitsrichtung: `ui` und `features` → `core`; `infrastructure` implementiert Interfaces aus
 `core`/`features`; nur `App.svelte` kennt `infrastructure`.
+
+Unterschiede zwischen Windows und Linux (Texte, Teilen-Dialog) kommen über `BackendPort.platform` und
+die Helfer in `lib/core/platform.ts`, nie über eigene Abfragen von `navigator`. Lokale Pfade
+behandelt `lib/core/localPath.ts` für beide Schreibweisen (`D:\Ziel`, `/home/anna`).
 
 Im normalen Browser (`npm run dev`) und in Tests läuft die Oberfläche gegen `infrastructure/fakeBackend.ts`
 mit Testdaten; in Tauri gegen `infrastructure/tauriBackend.ts`. Die gemeinsame Schnittstelle ist

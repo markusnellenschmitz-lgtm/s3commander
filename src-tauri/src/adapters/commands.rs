@@ -3,13 +3,13 @@
 // Tauri übergibt Argumente als Werte, und alle Fehler beschreibt `CommandError`.
 #![allow(clippy::needless_pass_by_value, clippy::missing_errors_doc)]
 
+use super::NativeShareSheet;
 use super::clock::SystemClock;
 use super::credential_store::KeyringCredentialStore;
 use super::local_files::StdLocalFiles;
 use super::profile_file::JsonProfileRepository;
 use super::s3::factory::HttpStoreFactory;
 use super::settings_file::JsonSettingsRepository;
-use super::share_sheet::WindowsShareSheet;
 use super::sqlite_cache::SqliteListingCache;
 use super::tauri_runtime::{TauriSpawner, TauriTransferEvents};
 use crate::application::connection::ConnectionTest;
@@ -413,7 +413,7 @@ pub fn presign_object(
 /// Gibt einen Link an den Teilen-Dialog von Windows. Bewusst synchron: Tauri führt synchrone
 /// Befehle auf dem Hauptthread aus, und der Dialog muss auf dem Thread des Fensters starten.
 #[tauri::command]
-pub fn share_link(sheet: State<'_, WindowsShareSheet>, title: String, url: String) -> Result<(), CommandError> {
+pub fn share_link(sheet: State<'_, NativeShareSheet>, title: String, url: String) -> Result<(), CommandError> {
     Ok(share::share_link(sheet.inner(), &title, &url)?)
 }
 

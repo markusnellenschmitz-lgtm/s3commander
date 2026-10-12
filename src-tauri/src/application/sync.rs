@@ -355,7 +355,7 @@ mod tests {
         let SyncWork::Downloads(jobs) = s.take(&preview.plan_id).unwrap().work else {
             panic!("Downloads erwartet")
         };
-        assert_eq!(jobs[1].target, PathBuf::from(r"C:\upload\neu\bericht.pdf"));
+        assert_eq!(jobs[1].target, Path::new(ROOT).join("neu").join("bericht.pdf"));
         assert!(jobs.iter().all(|j| j.replace_existing && j.keep_remote_time));
         assert_eq!(jobs[0].etag.as_deref(), Some("\"sicherung/datei-1.bin\""));
     }

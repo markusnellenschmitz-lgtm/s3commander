@@ -343,8 +343,8 @@
             <div class="s3-form-row">
               <div class="s3-form-k"><strong>Zugangsdaten</strong></div>
               <p class="text">
-                Access Keys liegen im Windows-Anmeldeinformationsspeicher, nie in Dateien oder Protokollen. Beim Löschen
-                einer Verbindung werden sie mit entfernt.
+                Access Keys liegen im {vm.credentialStore}, nie in Dateien oder Protokollen. Beim Löschen einer
+                Verbindung werden sie mit entfernt.
               </p>
             </div>
             <div class="s3-form-row">

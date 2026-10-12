@@ -3,10 +3,11 @@
 
 import type { BackendError, BackendPort, ObjectAt } from '../../core/backend';
 import { toBackendError } from '../../core/backend';
+import { hasShareSheet } from '../../core/platform';
 import { DEFAULT_SHARE_SECS, shareUntilText } from './shareRules';
 
 export interface ShareLinkDeps {
-  backend: Pick<BackendPort, 'presignObject' | 'shareLink'>;
+  backend: Pick<BackendPort, 'platform' | 'presignObject' | 'shareLink'>;
   writeText: (text: string) => Promise<void>;
   now?: () => number;
 }
@@ -25,6 +26,11 @@ export class ShareLink {
   constructor(deps: ShareLinkDeps) {
     this.#deps = deps;
     this.#now = deps.now ?? Date.now;
+  }
+
+  /** Ob es einen Teilen-Dialog des Systems gibt; sonst bleibt nur das Kopieren. */
+  get canShare(): boolean {
+    return hasShareSheet(this.#deps.backend.platform);
   }
 
   /** "bis 12.10.2026 15:23:08" */

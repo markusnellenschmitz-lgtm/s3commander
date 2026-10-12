@@ -1,7 +1,7 @@
 [package]
 name = "s3-commander"
 version = "0.1.1"
-description = "Windows-Client für S3-kompatiblen Object Storage"
+description = "Desktop-Client für S3-kompatiblen Object Storage unter Windows und Linux"
 authors = ["S3 Commander contributors"]
 license = "MIT"
 repository = "https://github.com/markusnellenschmitz-lgtm/s3commander"
@@ -66,3 +66,9 @@ wiremock = "0.6.5"
 [target."cfg(windows)".dependencies]
 windows-native-keyring-store = "1.1.0"
 windows = { version = "0.62", features = ["ApplicationModel_DataTransfer", "Foundation", "Win32_Foundation", "Win32_UI_Shell"] }
+
+# Secret Service (GNOME Keyring, KWallet). async-io statt Tokio: Der Speicher wird synchron aus
+# Tokio-Aufgaben heraus aufgerufen, und async-io blockiert dabei nur den Thread, statt eine
+# zweite Tokio-Laufzeit zu starten.
+[target."cfg(target_os = \"linux\")".dependencies]
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-async-io-crypto-rust"] }

@@ -45,6 +45,7 @@ import { createFakeFilePicker } from '../infrastructure/filePickers';
 import { transfer } from '../../test/transfers';
 import { Selection } from '../core/table/selection.svelte';
 import { createFakeBackend, FAKE_PROFILES } from '../infrastructure/fakeBackend';
+import type { Platform } from '../core/platform';
 import { BACKUPS_PREFIX } from '../infrastructure/fixtures/buckets';
 import { file, folder, mockClientHeight } from '../../test/fakes';
 
@@ -101,8 +102,8 @@ describe('ObjectTable', () => {
 /** Feste Uhrzeit für Texte wie „bis …“ im Freigabe-Abschnitt. */
 const NOW = new Date(2026, 9, 11, 15, 23, 8).getTime();
 
-function mainWindow() {
-  const backend = createFakeBackend({ pageDelayMs: 0, logObjects: 100 });
+function mainWindow(platform: Platform = 'windows') {
+  const backend = createFakeBackend({ pageDelayMs: 0, logObjects: 100, platform });
   const vm = new BrowserViewModel({ backend, schedule: (run) => run() });
   const transfers = new TransfersViewModel({ backend, picker: createFakeFilePicker(['C:\\neu.zip']) });
   const drops = controlledDrops();
@@ -863,6 +864,18 @@ describe('Eigenschaften im Hauptfenster', () => {
     expect(screen.queryByRole('complementary', { name: 'Eigenschaften' })).not.toBeInTheDocument();
     await fireEvent.keyDown(window, { key: 'Enter', altKey: true });
     expect(panel()).toBeInTheDocument();
+  });
+
+  it('bietet in der Freigabe unter Linux nur das Kopieren an', async () => {
+    const { vm } = mainWindow('linux');
+    await openDaily(vm);
+    await fireEvent.click(screen.getByRole('button', { name: 'Eigenschaften (Alt+Enter)' }));
+    await fireEvent.click(screen.getByText('db-incr-20261011-0600.tar.zst'));
+    await settle();
+    await settle();
+    const share = within(panel()).getByRole('region', { name: 'Freigabe' });
+    expect(within(share).getByRole('button', { name: 'Presigned URL kopieren' })).toBeInTheDocument();
+    expect(within(share).queryByRole('button', { name: /Teilen/ })).not.toBeInTheDocument();
   });
 
   it('bearbeitet Metadaten und Tags im Panel', async () => {

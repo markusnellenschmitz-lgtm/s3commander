@@ -25,6 +25,14 @@ function fillKeys() {
   vm.form.secretAccessKey = 'geheim';
 }
 
+describe('Speicher für Zugangsdaten', () => {
+  it('nennt den Speicher der Plattform', () => {
+    expect(vm.credentialStore).toBe('Windows-Anmeldeinformationsspeicher');
+    const linux = new ConnectionDialogViewModel({ backend: createFakeBackend({ platform: 'linux' }), onSaved });
+    expect(linux.credentialStore).toBe('Schlüsselbund des Systems');
+  });
+});
+
 describe('Vorlagen', () => {
   it('öffnet mit der ersten Vorlage und füllt Endpoint, Region und Adressierung', () => {
     vm.openCreate();

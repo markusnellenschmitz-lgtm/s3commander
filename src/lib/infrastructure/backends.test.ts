@@ -6,6 +6,13 @@ import { BACKUPS_PREFIX } from './fixtures/buckets';
 import { DEFAULT_TRANSFER_PREFERENCES } from '../features/settings/settingsRules';
 
 describe('createTauriBackend', () => {
+  it('erkennt die Plattform am User-Agent der WebView', () => {
+    const backend = (userAgent: string) => createTauriBackend(vi.fn() as never, undefined, undefined, userAgent);
+    expect(backend('Mozilla/5.0 (Windows NT 10.0; Win64; x64)').platform).toBe('windows');
+    expect(backend('Mozilla/5.0 (X11; Linux x86_64)').platform).toBe('linux');
+    expect(['windows', 'linux']).toContain(createTauriBackend(vi.fn() as never).platform);
+  });
+
   it('ruft die Tauri-Befehle mit den erwarteten Argumenten auf', async () => {
     const call = vi.fn().mockResolvedValue('ok');
     const backend = createTauriBackend(call as never);
@@ -192,6 +199,11 @@ describe('createTauriBackend', () => {
 
 describe('createFakeBackend', () => {
   const fast = () => createFakeBackend({ pageDelayMs: 0, logObjects: 2500 });
+
+  it('gibt sich als Windows aus, wenn nichts anderes verlangt ist', () => {
+    expect(fast().platform).toBe('windows');
+    expect(createFakeBackend({ platform: 'linux' }).platform).toBe('linux');
+  });
 
   it('liefert Vorlagen und Profile', async () => {
     const backend = fast();

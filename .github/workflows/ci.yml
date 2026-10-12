@@ -7,15 +7,29 @@ on:
   workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
   checks:
-    name: Lint und Tests
-    runs-on: windows-latest
+    name: Lint und Tests (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: Linux
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Linux-Pakete für Tauri und den Schlüsselbund
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev patchelf gnome-keyring dbus-x11
 
       - uses: actions/setup-node@v4
         with:
@@ -51,5 +65,16 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
 
       - name: Backend – Tests
+        if: runner.os == 'Windows'
         working-directory: src-tauri
         run: cargo test --locked
+
+      # Die Tests der Zugangsdaten brauchen einen entsperrten Schlüsselbund mit Secret Service.
+      - name: Backend – Tests (mit GNOME Keyring)
+        if: runner.os == 'Linux'
+        working-directory: src-tauri
+        run: |
+          dbus-run-session -- bash -c '
+            echo -n ci | gnome-keyring-daemon --components=secrets --daemonize --unlock > /dev/null
+            cargo test --locked
+          '

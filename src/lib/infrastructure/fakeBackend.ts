@@ -12,6 +12,7 @@ import type {
   ProviderPreset,
 } from '../core/backend';
 import { CANCELLED_KIND } from '../core/backend';
+import type { Platform } from '../core/platform';
 import { backupsBucket, logsBucket } from './fixtures/buckets';
 import { listFolder, paginate } from './fixtures/s3Listing';
 import { FakeTransferEngine, fakeLocalPath, type FakeTransferOptions } from './fakeTransfers';
@@ -125,6 +126,8 @@ export interface FakeBackendOptions {
   pageDelayMs?: number;
   logObjects?: number;
   transfers?: Omit<FakeTransferOptions, 'onFinished'>;
+  /** Vorgegaukeltes Betriebssystem; ohne Angabe Windows. */
+  platform?: Platform;
 }
 
 /** Beispiel für den Hinweis auf erhaltene ältere Versionen im Löschdialog. */
@@ -221,6 +224,7 @@ export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort
   }
 
   return {
+    platform: options.platform ?? 'windows',
     listPresets: async () => FAKE_PRESETS,
     getSettings: async () => structuredClone(settings),
     async saveSettings(value) {

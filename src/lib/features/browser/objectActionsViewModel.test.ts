@@ -112,6 +112,25 @@ describe('Kontextmenü', () => {
     expect([share.isOpen, share.name]).toEqual([true, file().key.split('/').pop()]);
   });
 
+  it('bietet „Teilen …“ unter Linux nicht an, „Presigned URL kopieren“ schon', () => {
+    const linux = createFakeBackend({ pageDelayMs: 0, platform: 'linux' });
+    const withoutSheet = new ObjectActionsViewModel({
+      browser,
+      transfers,
+      deletion,
+      naming,
+      clipboard,
+      details,
+      share: new ShareDialogViewModel({ backend: linux, writeText }),
+      writeText,
+    });
+    browser.selection.only(file().key);
+    withoutSheet.openAt(1, 1);
+    const ids = summary(withoutSheet.menu.state!.entries);
+    expect(ids).not.toContain('share');
+    expect(ids).toContain('presignedUrl');
+  });
+
   it('öffnet ohne offenen Ordner kein Menü und schließt nach der Wahl', async () => {
     const empty = new ObjectActionsViewModel({
       browser: new BrowserViewModel({ backend: createFakeBackend() }),

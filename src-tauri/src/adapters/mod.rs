@@ -2,9 +2,7 @@
 
 pub mod checksum;
 pub mod clock;
-#[cfg(windows)]
 pub mod commands;
-#[cfg(windows)]
 pub mod credential_store;
 pub mod json_file;
 pub mod local_files;
@@ -15,3 +13,10 @@ pub mod settings_file;
 pub mod share_sheet;
 pub mod sqlite_cache;
 pub mod tauri_runtime;
+pub mod unsupported_share_sheet;
+
+/// Teilen-Dialog des Systems: unter Windows der echte, sonst einer, der ablehnt.
+#[cfg(windows)]
+pub type NativeShareSheet = share_sheet::WindowsShareSheet;
+#[cfg(not(windows))]
+pub type NativeShareSheet = unsupported_share_sheet::UnsupportedShareSheet;

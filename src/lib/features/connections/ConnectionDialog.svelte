@@ -60,9 +60,7 @@
           <h2 id="conn-title" class="s3-dialog-title">
             {vm.mode === 'create' ? 'Neue Verbindung' : 'Verbindung bearbeiten'}
           </h2>
-          <span class="s3-muted"
-            >Zugangsdaten werden im Windows-Anmeldeinformationsspeicher abgelegt, nicht in der Profildatei.</span
-          >
+          <span class="s3-muted">Zugangsdaten werden im {vm.credentialStore} abgelegt, nicht in der Profildatei.</span>
         </div>
         <button
           type="button"

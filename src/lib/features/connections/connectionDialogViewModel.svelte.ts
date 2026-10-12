@@ -11,6 +11,7 @@ import type {
   ProviderPreset,
 } from '../../core/backend';
 import { toBackendError } from '../../core/backend';
+import { credentialStoreName } from '../../core/platform';
 import { matchEndpoint, type EndpointMatch } from '../../core/presets';
 
 export const DEFAULT_TIMEOUT_SECS = 60;
@@ -172,6 +173,11 @@ export class ConnectionDialogViewModel {
 
   close(): void {
     this.isOpen = false;
+  }
+
+  /** Wo die Zugangsdaten landen, z. B. „Windows-Anmeldeinformationsspeicher“. */
+  get credentialStore(): string {
+    return credentialStoreName(this.#backend.platform);
   }
 
   get preset(): ProviderPreset | undefined {

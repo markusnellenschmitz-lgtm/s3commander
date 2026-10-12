@@ -194,7 +194,7 @@ export class ObjectActionsViewModel {
       this.#item('copyPath', single ? 'Pfad kopieren' : 'Pfade kopieren', 'clipboard-copy'),
       this.#item('newFolder', 'Neuer Ordner', 'folder-plus'),
       SEPARATOR,
-      this.#item('share', 'Teilen …', 'share', !singleFile),
+      ...(this.#deps.share.link.canShare ? [this.#item('share', 'Teilen …', 'share', !singleFile)] : []),
       this.#item('presignedUrl', 'Presigned URL kopieren', 'link', !singleFile),
       this.#item('properties', 'Eigenschaften', 'panel-right'),
       SEPARATOR,

@@ -4,6 +4,7 @@
 import type { BackendError, BackendPort, CacheStats, TransferPreferences } from '../../core/backend';
 import { toBackendError } from '../../core/backend';
 import { countText } from '../../core/format';
+import { credentialStoreName } from '../../core/platform';
 import type { EntryColumn } from '../objects/entry';
 import { DEFAULT_TRANSFER_PREFERENCES, transferErrors } from './settingsRules';
 import type { ThemePreference, ThemeViewModel } from './themeViewModel.svelte';
@@ -149,6 +150,11 @@ export class SettingsViewModel {
     const draft = FIELDS[category](this.draft);
     const saved = FIELDS[category](this.saved);
     return draft.filter((value, i) => value !== saved[i]).length;
+  }
+
+  /** Wo die Zugangsdaten liegen, z. B. „Schlüsselbund des Systems“. */
+  get credentialStore(): string {
+    return credentialStoreName(this.#deps.backend.platform);
   }
 
   get totalChanges(): number {

@@ -1,5 +1,5 @@
 //! Verbindungsprofil (UI-SPEC §7 `ConnectionProfile`). Zugangsdaten gehören nicht hierher,
-//! sie liegen im Windows-Anmeldeinformationsspeicher unter der Profil-ID.
+//! sie liegen im Speicher für Zugangsdaten des Systems unter der Profil-ID.
 
 use super::endpoint::{Addressing, Endpoint};
 use super::error::StoreError;

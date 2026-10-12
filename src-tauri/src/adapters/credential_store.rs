@@ -1,4 +1,5 @@
-//! Zugangsdaten im Windows-Anmeldeinformationsspeicher (Credential Manager).
+//! Zugangsdaten im Speicher des Systems: unter Windows der Anmeldeinformationsspeicher
+//! (Credential Manager), unter Linux der Schlüsselbund über Secret Service (GNOME Keyring, `KWallet`).
 //! Je Profil ein Eintrag; Access Key, Secret und Session-Token liegen als JSON im Secret.
 
 use crate::domain::credentials::Credentials;
@@ -11,8 +12,11 @@ use std::sync::Arc;
 /// Umbenennung in „S3 Commander“ unverändert, damit gespeicherte Zugangsdaten gefunden werden.
 pub const DEFAULT_SERVICE: &str = "S3 Client";
 
+type SharedStore = Arc<dyn CredentialStoreApi + Send + Sync>;
+
 pub struct KeyringCredentialStore {
-    store: Arc<dyn CredentialStoreApi + Send + Sync>,
+    /// Der Speicher oder der Grund, warum er beim Start nicht erreichbar war.
+    store: Result<SharedStore, CredentialError>,
     service: String,
 }
 
@@ -25,18 +29,23 @@ impl std::fmt::Debug for KeyringCredentialStore {
 }
 
 impl KeyringCredentialStore {
-    /// Speicher des Betriebssystems.
-    ///
-    /// # Errors
-    ///
-    /// `Platform`, wenn der Anmeldeinformationsspeicher nicht verfügbar ist.
-    pub fn native(service: &str) -> Result<Self, CredentialError> {
-        let store = windows_native_keyring_store::Store::new().map_err(platform)?;
-        Ok(Self::with_store(store, service))
+    /// Speicher des Betriebssystems. Ist er nicht erreichbar, startet die App trotzdem; jeder
+    /// Zugriff meldet dann `Unavailable`.
+    #[must_use]
+    pub fn native(service: &str) -> Self {
+        let store = native_store().map_err(|error| CredentialError::Unavailable(error.to_string()));
+        if let Err(error) = &store {
+            log::warn!("{error}");
+        }
+        Self::from_result(store, service)
     }
 
     #[must_use]
-    pub fn with_store(store: Arc<dyn CredentialStoreApi + Send + Sync>, service: &str) -> Self {
+    pub fn with_store(store: SharedStore, service: &str) -> Self {
+        Self::from_result(Ok(store), service)
+    }
+
+    fn from_result(store: Result<SharedStore, CredentialError>, service: &str) -> Self {
         Self {
             store,
             service: service.to_owned(),
@@ -44,8 +53,19 @@ impl KeyringCredentialStore {
     }
 
     fn entry(&self, profile_id: &str) -> Result<keyring_core::Entry, CredentialError> {
-        self.store.build(&self.service, profile_id, None).map_err(platform)
+        let store = self.store.as_ref().map_err(Clone::clone)?;
+        store.build(&self.service, profile_id, None).map_err(platform)
     }
+}
+
+#[cfg(windows)]
+fn native_store() -> keyring_core::Result<SharedStore> {
+    Ok(windows_native_keyring_store::Store::new()?)
+}
+
+#[cfg(target_os = "linux")]
+fn native_store() -> keyring_core::Result<SharedStore> {
+    Ok(zbus_secret_service_keyring_store::Store::new()?)
 }
 
 #[allow(clippy::needless_pass_by_value)] // Signatur passt zu map_err.
@@ -77,14 +97,14 @@ impl CredentialStore for KeyringCredentialStore {
     }
 }
 
-/// Tests am echten Windows-Speicher laufen nacheinander: parallel liefert der Speicher
-/// gelegentlich direkt nach dem Schreiben "kein Eintrag" (beobachtet am 11.10.2026).
+/// Tests am echten Speicher laufen nacheinander: Windows liefert parallel gelegentlich direkt
+/// nach dem Schreiben "kein Eintrag" (beobachtet am 11.10.2026).
 #[cfg(test)]
-pub(crate) static WINDOWS_STORE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(crate) static NATIVE_STORE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(test)]
-pub(crate) fn lock_windows_store() -> std::sync::MutexGuard<'static, ()> {
-    WINDOWS_STORE_LOCK
+pub(crate) fn lock_native_store() -> std::sync::MutexGuard<'static, ()> {
+    NATIVE_STORE_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
@@ -99,9 +119,9 @@ mod tests {
     }
 
     #[test]
-    fn round_trips_credentials_in_the_windows_credential_manager() {
-        let _guard = lock_windows_store();
-        let store = KeyringCredentialStore::native(&test_service()).unwrap();
+    fn round_trips_credentials_in_the_native_store() {
+        let _guard = lock_native_store();
+        let store = KeyringCredentialStore::native(&test_service());
         let id = "profil-roundtrip";
         let credentials = Credentials::new("HZK7Q2M4XW9PL3RT8VN1", "w8Kq2LmZr4Tn9Xb1", Some("tok")).unwrap();
 
@@ -115,8 +135,8 @@ mod tests {
 
     #[test]
     fn reports_corrupt_entries() {
-        let _guard = lock_windows_store();
-        let store = KeyringCredentialStore::native(&test_service()).unwrap();
+        let _guard = lock_native_store();
+        let store = KeyringCredentialStore::native(&test_service());
         let id = "profil-kaputt";
         store.entry(id).unwrap().set_password("kein json").unwrap();
         let loaded = store.load(id);
@@ -126,8 +146,18 @@ mod tests {
 
     #[test]
     fn debug_output_names_only_the_service() {
-        let _guard = lock_windows_store();
-        let store = KeyringCredentialStore::native("Dienst").unwrap();
+        let _guard = lock_native_store();
+        let store = KeyringCredentialStore::native("Dienst");
         assert!(format!("{store:?}").contains("Dienst"));
+    }
+
+    #[test]
+    fn reports_an_unreachable_store_on_every_access() {
+        let reason = CredentialError::Unavailable("kein D-Bus".into());
+        let store = KeyringCredentialStore::from_result(Err(reason.clone()), "Dienst");
+        let credentials = Credentials::new("HZK7Q2M4XW9PL3RT8VN1", "w8Kq2LmZr4Tn9Xb1", None).unwrap();
+        assert_eq!(store.load("p"), Err(reason.clone()));
+        assert_eq!(store.save("p", &credentials), Err(reason.clone()));
+        assert_eq!(store.delete("p"), Err(reason));
     }
 }

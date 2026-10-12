@@ -1,13 +1,13 @@
 # S3 Commander
 
-**Ein schneller, nativer Windows-Client für Amazon S3 und jeden S3-kompatiblen Object Storage.**
+**Ein schneller, nativer Desktop-Client für Amazon S3 und jeden S3-kompatiblen Object Storage, unter Windows und Linux.**
 
 S3 Commander fühlt sich an wie ein Dateimanager, nicht wie ein Web-Dashboard: Tabs, Zwei-Panel-Ansicht,
 Drag and Drop, Tastatursteuerung und eine Objektliste, die auch Buckets mit Millionen von Objekten
-flüssig darstellt. Die App ist eine einzelne, rund 15 MB große EXE und braucht weder .NET noch Java
-oder eine andere Laufzeitumgebung.
+flüssig darstellt. Unter Windows ist die App eine einzelne, rund 15 MB große EXE und braucht weder .NET
+noch Java oder eine andere Laufzeitumgebung.
 
-> _English summary:_ S3 Commander is a fast, native Windows 11 desktop client for Amazon S3 and any
+> _English summary:_ S3 Commander is a fast, native desktop client for Windows and Linux for Amazon S3 and any
 > S3-compatible storage (MinIO, Cloudflare R2, Backblaze B2, Wasabi, Hetzner, Ceph, Garage, …).
 > Built with Rust, Tauri 2 and Svelte 5. The user interface is currently German only. MIT licensed.
 
@@ -18,13 +18,19 @@ oder eine andere Laufzeitumgebung.
 
 Fertige Versionen gibt es unter **[Releases](https://github.com/markusnellenschmitz-lgtm/s3commander/releases)**:
 
-| Datei                                     | Für wen                                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `S3 Commander_<version>_x64-setup.exe`    | Installer (empfohlen): Startmenü-Eintrag, Deinstallation, installiert bei Bedarf WebView2 |
-| `S3-Commander_<version>_x64-portable.exe` | Portable EXE ohne Installation, einfach starten                                           |
+| Datei                                     | Für wen                                                                                            |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `S3 Commander_<version>_x64-setup.exe`    | Windows, Installer (empfohlen): Startmenü-Eintrag, Deinstallation, installiert bei Bedarf WebView2 |
+| `S3-Commander_<version>_x64-portable.exe` | Windows, portable EXE ohne Installation, einfach starten                                           |
+| `S3 Commander_<version>_amd64.deb`        | Linux: Debian, Ubuntu, Mint und Verwandte (`sudo apt install ./S3*.deb`)                           |
+| `S3 Commander_<version>_amd64.AppImage`   | Linux: alle anderen Distributionen, ohne Installation (`chmod +x` und starten)                     |
 
-**Voraussetzungen:** Windows 10 oder 11 (64 Bit). Die portable EXE braucht die Microsoft Edge
-WebView2 Runtime, die unter Windows 11 bereits vorhanden ist.
+**Voraussetzungen**
+
+- **Windows:** Windows 10 oder 11 (64 Bit). Die portable EXE braucht die Microsoft Edge WebView2 Runtime,
+  die unter Windows 11 bereits vorhanden ist.
+- **Linux:** x86_64 mit einer aktuellen Distribution (etwa Ubuntu 22.04 oder neuer) und einem Schlüsselbund
+  mit Secret Service für die Zugangsdaten. GNOME und KDE bringen ihn mit (GNOME Keyring bzw. KWallet).
 
 > **Hinweis zu SmartScreen:** Die Releases sind (noch) nicht code-signiert. Windows zeigt deshalb beim
 > ersten Start „Der Computer wurde durch Windows geschützt“. Über _Weitere Informationen › Trotzdem
@@ -52,7 +58,7 @@ WebView2 Runtime, die unter Windows 11 bereits vorhanden ist.
 - Uploads und Downloads parallel und in Teilen (Multipart / Range-Requests), direkt von und auf die Platte.
 - Pausieren und Fortsetzen, automatische Wiederholung bei vorübergehenden Fehlern.
 - Bandbreitenlimit, einstellbare Parallelität und Teilgröße.
-- Drag and Drop aus dem Windows-Explorer, auch ganze Ordner.
+- Drag and Drop aus dem Dateimanager (Explorer, Nautilus, Dolphin …), auch ganze Ordner.
 - Kopieren und Verschieben (Strg+C / Strg+X / Strg+V) serverseitig innerhalb einer Verbindung und
   auch zwischen verschiedenen Verbindungen oder Anbietern.
 - Prüfsummen: Uploads prüft der Dienst per CRC32C oder MD5, Downloads werden gegen den ETag geprüft.
@@ -63,12 +69,13 @@ WebView2 Runtime, die unter Windows 11 bereits vorhanden ist.
 - Neuer Ordner, Umbenennen (F2), Löschen mit Vorschau, auch für große Mengen in Paketen.
 - Eigenschaften (Alt+Enter): Metadaten bearbeiten, Tags, Versionen, Zugriffsrechte (ACL),
   Verschlüsselung und vorsignierte Links.
-- Teilen (Rechtsklick › Teilen …): zeitlich begrenzter Link über den Teilen-Dialog von Windows an
-  Mail, WhatsApp, Teams, die Umgebungsfreigabe oder als QR-Code aufs Handy.
+- Teilen (Rechtsklick › Teilen …, nur Windows): zeitlich begrenzter Link über den Teilen-Dialog von Windows an
+  Mail, WhatsApp, Teams, die Umgebungsfreigabe oder als QR-Code aufs Handy. Unter Linux lässt sich der
+  Link kopieren.
 
 **Oberfläche**
 
-- Helles und dunkles Design (folgt auf Wunsch Windows), kompakte Zeilenhöhe, ausblendbare Spalten.
+- Helles und dunkles Design (folgt auf Wunsch dem System), kompakte Zeilenhöhe, ausblendbare Spalten.
 
 ### Tastenkürzel
 
@@ -88,15 +95,18 @@ WebView2 Runtime, die unter Windows 11 bereits vorhanden ist.
 
 ## Sicherheit und Datenschutz
 
-- **Zugangsdaten** liegen ausschließlich in der Windows-Anmeldeinformationsverwaltung (Credential Manager),
-  nie in Konfigurationsdateien oder Logs.
-- **TLS** läuft über SChannel, also den Windows-eigenen TLS-Stack. Es gilt der Windows-Zertifikatspeicher,
-  Firmen-Stammzertifikate funktionieren ohne Zusatzaufwand.
+- **Zugangsdaten** liegen ausschließlich im Speicher des Systems, nie in Konfigurationsdateien oder Logs:
+  unter Windows in der Anmeldeinformationsverwaltung (Credential Manager), unter Linux im Schlüsselbund
+  (Secret Service, etwa GNOME Keyring oder KWallet).
+- **TLS** läuft über den TLS-Stack des Systems: unter Windows SChannel mit dem Windows-Zertifikatspeicher,
+  unter Linux OpenSSL mit den Zertifikaten der Distribution. Firmen-Stammzertifikate funktionieren ohne
+  Zusatzaufwand.
 - **Kein AWS-SDK, keine Telemetrie.** Die App spricht direkt mit der S3-REST-API und schickt nichts an
   Dritte. Die Signatur (AWS Signature V4) ist selbst implementiert und gegen die offiziellen
   AWS-Testvektoren geprüft.
-- Einstellungen und der Listing-Cache liegen unter `%LOCALAPPDATA%\app.s3commander\`;
-  der Cache lässt sich in den Einstellungen abschalten und leeren.
+- Einstellungen und der Listing-Cache liegen in Ordnern namens `app.s3commander`, unter Windows
+  in `%APPDATA%` und `%LOCALAPPDATA%`, unter Linux in `~/.config` und `~/.cache`. Der Cache lässt sich in
+  den Einstellungen abschalten und leeren.
 
 Sicherheitslücken bitte nicht als öffentliches Issue melden, sondern über
 [GitHub Security Advisories](https://github.com/markusnellenschmitz-lgtm/s3commander/security/advisories/new).
@@ -106,7 +116,9 @@ Sicherheitslücken bitte nicht als öffentliches Issue melden, sondern über
 **Voraussetzungen**
 
 - Windows 10/11 mit den [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
-  (Workload „Desktopentwicklung mit C++“)
+  (Workload „Desktopentwicklung mit C++“), oder Linux mit den
+  [Tauri-Systempaketen](https://v2.tauri.app/start/prerequisites/#linux), unter Debian/Ubuntu:
+  `sudo apt install build-essential libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev patchelf`
 - [Rust](https://rustup.rs/) 1.90 oder neuer
 - [Node.js](https://nodejs.org/) 24 oder neuer
 
@@ -117,7 +129,7 @@ git clone https://github.com/markusnellenschmitz-lgtm/s3commander.git
 cd s3commander
 npm ci
 npm run tauri dev      # Entwicklungsmodus mit Hot Reload
-npm run tauri build    # Release: EXE und Installer unter src-tauri/target/release/
+npm run tauri build    # Release unter src-tauri/target/release/ (Windows: EXE und Installer, Linux: .deb und AppImage)
 ```
 
 Nur die Oberfläche lässt sich mit `npm run dev` im Browser starten. Sie läuft dann gegen ein
@@ -135,14 +147,14 @@ beschreibt [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Technik
 
-| Bereich    | Umsetzung                                                                    |
-| ---------- | ---------------------------------------------------------------------------- |
-| Backend    | Rust, Tauri 2, hexagonale Architektur (Ports & Adapters)                     |
-| S3         | Eigene REST-Implementierung mit SigV4, `reqwest` mit `native-tls` (SChannel) |
-| Cache      | SQLite (eingebaut über `rusqlite`)                                           |
-| Frontend   | Svelte 5, TypeScript, reines CSS, MVVM mit View-Models                       |
-| Oberfläche | WebView2 (Teil von Windows 11)                                               |
-| Tests      | `cargo test` mit wiremock, Vitest mit Testing Library                        |
+| Bereich    | Umsetzung                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| Backend    | Rust, Tauri 2, hexagonale Architektur (Ports & Adapters)                                  |
+| S3         | Eigene REST-Implementierung mit SigV4, `reqwest` mit `native-tls` (SChannel bzw. OpenSSL) |
+| Cache      | SQLite (eingebaut über `rusqlite`)                                                        |
+| Frontend   | Svelte 5, TypeScript, reines CSS, MVVM mit View-Models                                    |
+| Oberfläche | WebView2 unter Windows, WebKitGTK unter Linux                                             |
+| Tests      | `cargo test` mit wiremock, Vitest mit Testing Library                                     |
 
 Aufbau, Regeln und Werkzeuge im Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 Geplante Funktionen: [docs/FEATURE-BOARD.md](docs/FEATURE-BOARD.md).
@@ -151,13 +163,14 @@ Geplante Funktionen: [docs/FEATURE-BOARD.md](docs/FEATURE-BOARD.md).
 
 1. Version in `package.json`, `src-tauri/Cargo.toml` und `src-tauri/tauri.conf.json` erhöhen.
 2. Tag setzen und pushen: `git tag v0.2.0 && git push origin v0.2.0`.
-3. GitHub Actions baut Installer und portable EXE und legt einen Release-Entwurf an. Dort Text prüfen
-   und auf _Publish release_ klicken.
+3. GitHub Actions legt einen Release-Entwurf an und baut dafür Installer und portable EXE für Windows
+   sowie .deb und AppImage für Linux. Dort Text prüfen und auf _Publish release_ klicken.
 
 ## Status
 
 S3 Commander ist jung (Version 0.x). Die Kernfunktionen sind umfassend automatisiert getestet, aber
-noch wenig im Alltag gegen alle Anbieter erprobt. Bitte wichtige Daten nicht ohne Sicherung bewegen und
+noch wenig im Alltag gegen alle Anbieter erprobt. Die Linux-Fassung ist neu und bisher vor allem
+automatisiert getestet. Bitte wichtige Daten nicht ohne Sicherung bewegen und
 Probleme gern als [Issue](https://github.com/markusnellenschmitz-lgtm/s3commander/issues) melden.
 
 ## Lizenz

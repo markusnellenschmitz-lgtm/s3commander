@@ -274,7 +274,7 @@ async fn download_part<S: ObjectStore>(
 mod tests {
     use super::*;
     use crate::application::parts::RetryPolicy;
-    use crate::application::test_support::{FakeFiles, FakeStore, FileCall, TransferCall};
+    use crate::application::test_support::{FakeFiles, FakeStore, FileCall, TransferCall, local_path};
     use crate::domain::details::ObjectHead;
     use crate::domain::error::ServiceError;
     use crate::domain::multipart::MIB;
@@ -565,15 +565,15 @@ mod tests {
             },
         ]);
         let items = [item("backups/daily/", true), item("backups/liesmich.txt", false)];
-        let jobs = resolve_downloads(&store, "b", "backups/", &items, Path::new(r"D:\Ziel"))
+        let jobs = resolve_downloads(&store, "b", "backups/", &items, Path::new("Ziel"))
             .await
             .unwrap();
         assert_eq!(
             targets(&jobs),
             [
-                r"D:\Ziel\daily\a.tar",
-                r"D:\Ziel\daily\2026\b.tar",
-                r"D:\Ziel\liesmich.txt"
+                local_path(&["Ziel", "daily", "a.tar"]),
+                local_path(&["Ziel", "daily", "2026", "b.tar"]),
+                local_path(&["Ziel", "liesmich.txt"]),
             ]
         );
         let sizes: Vec<u64> = jobs.iter().map(|j| j.size).collect();
@@ -587,12 +587,16 @@ mod tests {
     async fn gives_colliding_keys_distinct_local_files() {
         let store = FakeStore::default();
         let items = [item("a:b.txt", false), item("a_b.txt", false), item("a?b.txt", false)];
-        let jobs = resolve_downloads(&store, "b", "", &items, Path::new(r"D:\Ziel"))
+        let jobs = resolve_downloads(&store, "b", "", &items, Path::new("Ziel"))
             .await
             .unwrap();
         assert_eq!(
             targets(&jobs),
-            [r"D:\Ziel\a_b.txt", r"D:\Ziel\a_b (2).txt", r"D:\Ziel\a_b (3).txt"]
+            [
+                local_path(&["Ziel", "a_b.txt"]),
+                local_path(&["Ziel", "a_b (2).txt"]),
+                local_path(&["Ziel", "a_b (3).txt"]),
+            ]
         );
     }
 

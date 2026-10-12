@@ -1,6 +1,8 @@
 // Port zum Backend. Die Typen spiegeln die serialisierten Rust-Typen (camelCase).
 // Implementierungen: infrastructure/tauriBackend (echt), infrastructure/fakeBackend (Browser, Tests).
 
+import type { Platform } from './platform';
+
 export type Provider =
   'aws' | 'minio' | 'backblaze-b2' | 'cloudflare-r2' | 'wasabi' | 'hetzner' | 'ceph' | 'garage' | 'custom';
 
@@ -344,6 +346,8 @@ export interface FileDropPort {
 }
 
 export interface BackendPort {
+  /** Betriebssystem, auf dem das Backend läuft. */
+  readonly platform: Platform;
   listPresets(): Promise<ProviderPreset[]>;
   getSettings(): Promise<AppSettings>;
   /** Prüft und speichert; Transfers übernehmen die Werte sofort. Liefert den gespeicherten Stand. */
@@ -394,7 +398,7 @@ export interface BackendPort {
   objectAcl(at: ObjectAt): Promise<ObjectAcl>;
   /** Vorsignierter Link zum Herunterladen, höchstens sieben Tage gültig. */
   presignObject(at: ObjectAt, expiresSecs: number): Promise<string>;
-  /** Gibt einen Link an den Teilen-Dialog von Windows (Mail, Messenger, Umgebungsfreigabe, QR-Code). */
+  /** Gibt einen Link an den Teilen-Dialog von Windows (Mail, Messenger, Umgebungsfreigabe, QR-Code); nur mit `hasShareSheet`. */
   shareLink(title: string, url: string): Promise<void>;
   /** Legt im Ordner einen neuen Ordner an und liefert seinen Key. */
   createFolder(folder: FolderLocation, name: string): Promise<string>;

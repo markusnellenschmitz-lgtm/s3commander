@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "targets": ["deb", "appimage"],
+    "category": "Utility",
+    "shortDescription": "Client für S3-kompatiblen Object Storage",
+    "linux": {
+      "deb": {
+        "section": "net"
+      }
+    }
+  }
+}

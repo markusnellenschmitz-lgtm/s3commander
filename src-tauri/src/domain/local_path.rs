@@ -130,17 +130,12 @@ mod tests {
 
     #[test]
     fn names_partial_and_numbered_files() {
-        let target = Path::new(r"D:\Exporte\bild.jpg");
-        assert_eq!(partial_path(target), Path::new(r"D:\Exporte\bild.jpg.s3part"));
-        assert_eq!(numbered_path(target, 2), Path::new(r"D:\Exporte\bild (2).jpg"));
-        assert_eq!(
-            numbered_path(Path::new(r"D:\liesmich"), 3),
-            Path::new(r"D:\liesmich (3)")
-        );
-        assert_eq!(numbered_path(Path::new(r"D:\.env"), 2), Path::new(r"D:\.env (2)"));
-        assert_eq!(
-            numbered_path(Path::new(r"D:\a.tar.gz"), 2),
-            Path::new(r"D:\a.tar (2).gz")
-        );
+        let folder = Path::new("Exporte");
+        let target = folder.join("bild.jpg");
+        assert_eq!(partial_path(&target), folder.join("bild.jpg.s3part"));
+        assert_eq!(numbered_path(&target, 2), folder.join("bild (2).jpg"));
+        assert_eq!(numbered_path(&folder.join("liesmich"), 3), folder.join("liesmich (3)"));
+        assert_eq!(numbered_path(&folder.join(".env"), 2), folder.join(".env (2)"));
+        assert_eq!(numbered_path(&folder.join("a.tar.gz"), 2), folder.join("a.tar (2).gz"));
     }
 }

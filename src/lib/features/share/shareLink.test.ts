@@ -31,6 +31,12 @@ describe('shareRules', () => {
 });
 
 describe('ShareLink', () => {
+  it('kennt den Teilen-Dialog nur unter Windows', () => {
+    expect(new ShareLink({ backend, writeText }).canShare).toBe(true);
+    const linux = createFakeBackend({ pageDelayMs: 0, platform: 'linux' });
+    expect(new ShareLink({ backend: linux, writeText }).canShare).toBe(false);
+  });
+
   it('erzeugt den Link mit der gewählten Gültigkeit, kopiert ihn und gibt ihn an Windows', async () => {
     const link = new ShareLink({ backend, writeText, now: () => NOW });
     await link.setDuration(60);

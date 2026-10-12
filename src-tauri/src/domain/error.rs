@@ -92,8 +92,14 @@ impl From<StoreError> for ErrorReport {
 /// Fehler des Speichers für Zugangsdaten.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum CredentialError {
-    #[error("Zugriff auf den Windows-Anmeldeinformationsspeicher fehlgeschlagen: {0}")]
+    #[error("Zugriff auf den Speicher für Zugangsdaten des Systems fehlgeschlagen: {0}")]
     Platform(String),
+    /// Kein Speicher erreichbar, unter Linux z. B. ohne laufenden Schlüsselbund.
+    #[error(
+        "Kein Speicher für Zugangsdaten erreichbar. Unter Linux wird ein Schlüsselbund mit Secret Service \
+         gebraucht, etwa GNOME Keyring oder KWallet. ({0})"
+    )]
+    Unavailable(String),
     #[error("Gespeicherte Zugangsdaten sind beschädigt: {0}")]
     Corrupt(String),
 }
@@ -179,5 +185,12 @@ mod tests {
     #[test]
     fn credential_errors_explain_the_cause() {
         assert!(CredentialError::Corrupt("x".into()).to_string().contains("beschädigt"));
+        assert!(
+            CredentialError::Platform("x".into())
+                .to_string()
+                .contains("Speicher für Zugangsdaten")
+        );
+        let unavailable = CredentialError::Unavailable("kein D-Bus".into()).to_string();
+        assert!(unavailable.contains("GNOME Keyring") && unavailable.ends_with("(kein D-Bus)"));
     }
 }

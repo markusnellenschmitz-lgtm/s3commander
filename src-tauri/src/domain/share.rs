@@ -53,6 +53,8 @@ pub enum ShareError {
     InvalidLink(String),
     #[error("Der Teilen-Dialog von Windows ließ sich nicht öffnen: {0}")]
     Platform(String),
+    #[error("Einen Teilen-Dialog des Systems gibt es nur unter Windows. Der Link lässt sich kopieren.")]
+    Unsupported,
 }
 
 #[cfg(test)]
@@ -95,5 +97,6 @@ mod tests {
             ShareError::Platform("E_FAIL".into()).to_string(),
             "Der Teilen-Dialog von Windows ließ sich nicht öffnen: E_FAIL"
         );
+        assert!(ShareError::Unsupported.to_string().contains("nur unter Windows"));
     }
 }

@@ -663,6 +663,11 @@ impl StoreProvider for FakeProvider {
     }
 }
 
+/// Lokaler Pfad aus Segmenten mit dem Trenner der Plattform, z. B. `Ziel\a.bin` oder `Ziel/a.bin`.
+pub fn local_path(segments: &[&str]) -> String {
+    segments.iter().collect::<PathBuf>().display().to_string()
+}
+
 const FAKE_FILE_ERROR: &str = r"X:\fehlt: nicht gefunden";
 
 /// Aufgezeichnete Operation an einer Teildatei.

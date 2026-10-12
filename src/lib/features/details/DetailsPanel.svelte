@@ -266,7 +266,7 @@
         {#if !vm.collapsed.share}
           {@render problem('share', null)}
           <div class="share">
-            <ShareLinkFields link={vm.share} onshare={() => vm.shareWithWindows()} />
+            <ShareLinkFields link={vm.share} onshare={vm.share.canShare ? () => vm.shareWithWindows() : undefined} />
           </div>
         {/if}
       </section>

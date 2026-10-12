@@ -5,7 +5,7 @@
 
 use super::checksum::{DigestKind, digest_file};
 use crate::domain::error::StoreError;
-use crate::domain::local_dir::LocalEntry;
+use crate::domain::local_dir::{FILE_SYSTEM_LABEL, HOME_LABEL, LocalEntry};
 use crate::domain::local_path::numbered_path;
 use crate::domain::transfer::{FileRange, LocalFile};
 use crate::ports::{LocalDirectories, LocalFiles};
@@ -177,12 +177,52 @@ impl LocalFiles for StdLocalFiles {
     }
 }
 
+/// Oberste Ebene unter Linux: persönlicher Ordner, Dateisystem `/` und jeder Unterordner der
+/// Einhängeorte (`volume_dirs`), etwa USB-Sticks unter `/media/<Nutzer>`.
+#[must_use]
+pub fn unix_roots(home: Option<&Path>, volume_dirs: &[PathBuf]) -> Vec<LocalEntry> {
+    let home = home
+        .filter(|dir| dir.is_dir())
+        .map(|dir| LocalEntry::root(HOME_LABEL, &dir.display().to_string()));
+    let volumes = volume_dirs
+        .iter()
+        .filter_map(|dir| fs::read_dir(dir).ok())
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .map(|path| LocalEntry::root(&file_name(&path), &path.display().to_string()));
+    home.into_iter()
+        .chain(std::iter::once(LocalEntry::root(FILE_SYSTEM_LABEL, "/")))
+        .chain(volumes)
+        .collect()
+}
+
+/// Wo Linux-Desktops Datenträger einhängen.
+#[cfg(not(windows))]
+fn volume_dirs() -> Vec<PathBuf> {
+    let user = std::env::var("USER").unwrap_or_default();
+    let mut dirs = vec![PathBuf::from("/mnt")];
+    if !user.is_empty() {
+        dirs.push(Path::new("/media").join(&user));
+        dirs.push(Path::new("/run/media").join(&user));
+    }
+    dirs
+}
+
 impl LocalDirectories for StdLocalFiles {
+    #[cfg(windows)]
     fn roots(&self) -> Vec<LocalEntry> {
         ('A'..='Z')
             .filter(|letter| Path::new(&format!("{letter}:\\")).exists())
             .map(LocalEntry::drive)
             .collect()
+    }
+
+    #[cfg(not(windows))]
+    fn roots(&self) -> Vec<LocalEntry> {
+        let home = std::env::var_os("HOME").map(PathBuf::from);
+        unix_roots(home.as_deref(), &volume_dirs())
     }
 
     /// Einträge, deren Metadaten nicht lesbar sind (gesperrt, gerade gelöscht), fehlen still.
@@ -254,6 +294,33 @@ mod tests {
         assert!(status.success());
         assert_eq!(StdLocalFiles.list(dir.path()).unwrap(), Vec::new());
         assert!(StdLocalFiles.roots().iter().any(|d| d.path == "C:\\"));
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn offers_the_file_system_root_on_linux() {
+        assert!(StdLocalFiles.roots().iter().any(|root| root.path == "/"));
+    }
+
+    #[test]
+    fn lists_home_file_system_and_mounted_volumes_as_unix_roots() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("home");
+        let media = dir.path().join("media");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(media.join("USB-STICK")).unwrap();
+        fs::write(media.join("keine-platte.txt"), b"x").unwrap();
+        let roots = unix_roots(Some(&home), &[media.clone(), dir.path().join("fehlt")]);
+        let summary: Vec<_> = roots.iter().map(|r| (r.name.as_str(), r.path.clone())).collect();
+        assert_eq!(
+            summary,
+            [
+                ("Persönlicher Ordner", home.display().to_string()),
+                ("Dateisystem", "/".to_owned()),
+                ("USB-STICK", media.join("USB-STICK").display().to_string()),
+            ]
+        );
+        assert_eq!(unix_roots(Some(&dir.path().join("fehlt")), &[]).len(), 1);
     }
 
     #[test]

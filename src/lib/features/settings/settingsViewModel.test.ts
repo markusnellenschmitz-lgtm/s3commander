@@ -25,6 +25,12 @@ beforeEach(() => {
 });
 
 describe('SettingsViewModel', () => {
+  it('nennt den Speicher für Zugangsdaten der Plattform', () => {
+    expect(vm.credentialStore).toBe('Windows-Anmeldeinformationsspeicher');
+    const linux = new SettingsViewModel({ backend: createFakeBackend({ platform: 'linux' }), theme, view, onSaved });
+    expect(linux.credentialStore).toBe('Schlüsselbund des Systems');
+  });
+
   it('öffnet mit dem gespeicherten Stand und zählt Änderungen je Kategorie', async () => {
     await vm.open();
     expect([vm.isOpen, vm.category, vm.totalChanges, vm.canSave]).toEqual([true, 'transfers', 0, false]);
