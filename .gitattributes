@@ -1,0 +1,7 @@
+# Zeilenenden immer LF, auch auf Windows-Rechnern mit core.autocrlf (z. B. GitHub Actions);
+# Prettier und die Tests erwarten LF.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
