@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint und Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Frontend – Lint
+        run: npm run lint
+
+      - name: Frontend – Formatierung
+        run: npm run format:check
+
+      - name: Frontend – Tests mit Abdeckung
+        run: npm run test:coverage
+
+      - name: Backend – Formatierung
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: Backend – Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Backend – Tests
+        working-directory: src-tauri
+        run: cargo test --locked

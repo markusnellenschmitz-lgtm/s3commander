@@ -1,0 +1,3 @@
+# In Tests sind unwrap/expect auf bekannte Testdaten üblich und lesbarer.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

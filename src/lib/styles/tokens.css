@@ -1,0 +1,141 @@
+/* S3 Client — Tokens als CSS-Variablen (Quelle: tokens.json).
+   Dark ist Standard. Umschalten über data-theme="dark|light" am <html>. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #1b1b1c;
+  --bg-panel: #232324;
+  --bg-raised: #2e2e30;
+  --bg-hover: #2a2a2c;
+  --bg-pressed: #333336;
+  --bg-subtle: #28282a;
+  --fg-primary: #ececec;
+  --fg-secondary: #a6a6a8;
+  --fg-disabled: #6a6a6d;
+  --border-subtle: #333335;
+  --border-strong: #7c7c80;
+  --accent: #5b9dff;
+  --accent-hover: #7aafff;
+  --accent-pressed: #4886e6;
+  --on-accent: #0a1626;
+  --selection-bg: #1d3a62;
+  --selection-bg-inactive: #323235;
+  --focus-ring: #a8caff;
+  --success-fg: #6fcf8a;
+  --success-bg: #17301f;
+  --warning-fg: #f2b950;
+  --warning-bg: #3a2c10;
+  --error-fg: #ff8a7a;
+  --error-bg: #3f1c18;
+  --on-error: #2a0b07;
+  --error-hover: #ffa294;
+  --info-fg: #5fd0dc;
+  --info-bg: #0f2f36;
+  --skeleton: #323235;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --scrollbar-thumb: #4a4a4d;
+  --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #ececec;
+  --bg-panel: #fafafa;
+  --bg-raised: #ffffff;
+  --bg-hover: #e4e4e4;
+  --bg-pressed: #dadada;
+  --bg-subtle: #f1f1f1;
+  --fg-primary: #1b1b1b;
+  --fg-secondary: #5a5a5c;
+  --fg-disabled: #a3a3a3;
+  --border-subtle: #e0e0e0;
+  --border-strong: #828285;
+  --accent: #1f5fcc;
+  --accent-hover: #1a52b3;
+  --accent-pressed: #15448f;
+  --on-accent: #ffffff;
+  --selection-bg: #cfe0fb;
+  --selection-bg-inactive: #dedede;
+  --focus-ring: #0f4fb8;
+  --success-fg: #1d7a3c;
+  --success-bg: #e2f3e6;
+  --warning-fg: #8a5800;
+  --warning-bg: #fbefd6;
+  --error-fg: #c22a1b;
+  --error-bg: #fbe4e0;
+  --on-error: #ffffff;
+  --error-hover: #a82214;
+  --info-fg: #0b6f80;
+  --info-bg: #ddf1f4;
+  --skeleton: #e3e3e3;
+  --scrim: rgba(0, 0, 0, 0.32);
+  --scrollbar-thumb: #bdbdbd;
+  --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.14);
+  --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+:root {
+  /* Schrift */
+  --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --leading-16: 16px;
+  --leading-20: 20px;
+  --leading-22: 22px;
+  --leading-28: 28px;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  /* Abstand (4-px-Raster) */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+
+  /* Radius */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  /* Größen */
+  --row-height: 28px;
+  --row-height-compact: 24px;
+  --control-sm: 24px;
+  --control-md: 32px;
+  --statusbar-height: 24px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+
+  /* Ebenen */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-popover: 100;
+  --z-dialog: 200;
+  --z-toast: 300;
+
+  /* Bewegung */
+  --duration-fast: 100ms;
+  --duration-base: 150ms;
+  --duration-slow: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}

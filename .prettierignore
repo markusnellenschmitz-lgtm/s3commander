@@ -1,0 +1,10 @@
+dist
+node_modules
+src-tauri/target
+src-tauri/gen
+coverage
+design
+src/lib/ui/icons/sprite.ts
+package-lock.json
+src/lib/styles/tokens.css
+src/lib/styles/components.css

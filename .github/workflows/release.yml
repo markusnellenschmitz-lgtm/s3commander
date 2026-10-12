@@ -1,0 +1,68 @@
+name: Release
+
+# Ein Tag wie v0.2.0 baut Installer und portable EXE und legt einen Release-Entwurf an.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Windows-Build
+    needs: checks
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Tag gegen App-Version prüfen
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} passt nicht zur Version $version in tauri.conf.json"
+          }
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Bauen und Release-Entwurf anlegen
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: S3 Commander ${{ github.ref_name }}
+          releaseBody: |
+            **Installer (empfohlen):** `S3 Commander_*_x64-setup.exe`
+            **Portable EXE ohne Installation:** `S3-Commander_*_x64-portable.exe` (braucht WebView2, unter Windows 11 vorhanden)
+
+            Die Dateien sind nicht code-signiert; Windows SmartScreen fragt deshalb beim ersten Start nach
+            („Weitere Informationen › Trotzdem ausführen“).
+          releaseDraft: true
+          prerelease: false
+
+      - name: Portable EXE anhängen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $portable = "S3-Commander_${version}_x64-portable.exe"
+          Copy-Item src-tauri/target/release/s3-commander.exe $portable
+          gh release upload "${{ github.ref_name }}" $portable --clobber

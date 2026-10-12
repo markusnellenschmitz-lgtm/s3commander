@@ -1,0 +1,66 @@
+[package]
+name = "s3-commander"
+version = "0.1.0"
+description = "Windows-Client für S3-kompatiblen Object Storage"
+authors = ["S3 Commander contributors"]
+license = "MIT"
+repository = "https://github.com/markusnellenschmitz-lgtm/s3commander"
+edition = "2024"
+rust-version = "1.90"
+
+[lib]
+name = "s3_commander_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.3", features = [] }
+tauri-plugin-log = "2"
+reqwest = { version = "0.13.5", default-features = false, features = ["native-tls", "http2", "charset", "stream"] }
+quick-xml = { version = "0.42.0", features = ["serialize"] }
+hmac = "0.13.0"
+sha2 = "0.11.0"
+hex = "0.4.3"
+thiserror = "2.0.21"
+percent-encoding = "2.3.2"
+url = "2.5.8"
+time = { version = "0.3.55", features = ["formatting", "parsing", "macros"] }
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+keyring-core = "1.0.0"
+tokio-util = { version = "0.7.20", features = ["io"] }
+futures-util = "0.3.34"
+mime_guess = "2.0.5"
+tauri-plugin-dialog = "2"
+md-5 = "0.11.0"
+base64 = "0.23.1"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+crc32c = "0.6.8"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+
+[dev-dependencies]
+tauri = { version = "2.12.3", features = ["test"] }
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "test-util"] }
+wiremock = "0.6.5"
+
+[target."cfg(windows)".dependencies]
+windows-native-keyring-store = "1.1.0"

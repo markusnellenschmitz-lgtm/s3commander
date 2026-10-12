@@ -1,0 +1,457 @@
+/* Ergänzungen zum Design-Handoff (design/s3-client-ui-handoff).
+   tokens.css und components.css bleiben 1:1 wie geliefert. Alles, was dort fehlt
+   oder im Handoff nur als Mockup-Hilfsklasse (mk-*) existierte, steht hier.
+   Regeln: nur var(--…), Präfix s3-, Zustände über is-*. */
+
+/* ---------- 1. Icon-Grundregel (stand nur in mockup.css) ---------- */
+svg.s3-ico {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+/* ---------- 2. Resets für Buttons, die als Komponenten-Element dienen ---------- */
+button {
+  font: inherit;
+  color: inherit;
+}
+button.s3-tab-x,
+button.s3-menu-item,
+button.s3-plain {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+/* Menüeinträge als <button>: volle Breite, Text links, Tastaturfokus wie .is-active. */
+button.s3-menu-item {
+  width: 100%;
+  text-align: left;
+}
+button.s3-menu-item:focus-visible {
+  background: var(--bg-hover);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+/* Tabs als <button>: Rahmen und Hintergrund des Browsers entfernen, die Trennlinie bleibt
+   (in mockup.css enthalten, beim Übernehmen zuerst übersehen). Reiter ohne Rahmen
+   (.s3-tabs-plain) überschreiben die Trennlinie mit höherer Spezifität. */
+button.s3-tab {
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  margin: 0;
+  font: inherit;
+  text-align: left;
+}
+button.s3-sb-item {
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--border-subtle);
+  font: inherit;
+  color: inherit;
+}
+button.s3-sb-item.is-right {
+  border-right: 0;
+  border-left: 1px solid var(--border-subtle);
+}
+button.s3-sb-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Tab als div[role=tab] (UI-SPEC §9.5): Fokus innen, x ist eigener Button. */
+.s3-tab:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Nur für Screenreader */
+.s3-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 3. Fehlende Zustände (UI-SPEC §9.4) ---------- */
+.s3-input:hover:not(:focus-within):not(.is-focus):not(.is-disabled):not(.is-invalid) {
+  border-color: var(--fg-secondary);
+}
+.s3-btn-danger:active,
+.s3-btn-danger.is-pressed {
+  background: var(--error-hover);
+}
+
+/* ---------- 4. Transfer: Fehlerzeile als Klasse statt Inline-Style ---------- */
+.s3-xfer.is-failed {
+  background: var(--error-bg);
+}
+.s3-xfer.is-failed.is-selected {
+  background: var(--selection-bg);
+  box-shadow: inset 2px 0 0 var(--error-fg);
+}
+.s3-xfer.is-failed .s3-xfer-num,
+.s3-xfer.is-failed .s3-pct {
+  color: var(--fg-primary);
+}
+.s3-xfer-errline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  /* Zeilenhöhe statt 32 px: die virtuelle Transfer-Liste braucht eine feste Höhe je Zeile. */
+  height: var(--row-height);
+  padding: 0 var(--space-8) 0 36px;
+  background: var(--error-bg);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-12);
+  line-height: var(--leading-16);
+}
+.s3-xfer-errline > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.s3-xfer-errline strong {
+  font-weight: var(--weight-semibold);
+  color: var(--error-fg);
+}
+
+/* ---------- 5. Aus mk-* übernommene Bausteine ---------- */
+/* Werkzeugleiste und Pfadzeile im Hauptbereich (UI-SPEC §1, nicht .s3-toolbar aus components.css) */
+.s3-actionbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 40px;
+  padding: 0 var(--space-8);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: none;
+}
+.s3-navrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 44px;
+  padding: 0 var(--space-8);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: none;
+}
+.s3-tsep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  margin: 0 var(--space-4);
+  flex: none;
+}
+
+/* Eingeklappte Transfer-Queue */
+.s3-qbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 32px;
+  padding: 0 var(--space-8) 0 var(--space-4);
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-subtle);
+  flex: none;
+  font-size: var(--text-12);
+}
+
+/* Kopf eines Zwei-Panel-Bereichs */
+.s3-panehead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: 44px;
+  padding: 0 var(--space-8);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: none;
+}
+.s3-panelabel {
+  font-size: var(--text-11);
+  line-height: var(--leading-16);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: none;
+}
+
+/* Drag-and-drop */
+/* Liegt über dem sticky Tabellenkopf; folgt per top/height dem sichtbaren Bereich. */
+.s3-drop-frame {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: calc(var(--z-sticky) + 1);
+  border: 2px dashed var(--accent);
+  pointer-events: none;
+}
+.s3-tr.is-drop,
+.s3-tr.is-drop:hover {
+  background: var(--selection-bg);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.s3-drag-ghost {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-8) var(--space-12);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  font-size: var(--text-12);
+  line-height: var(--leading-16);
+  pointer-events: none;
+}
+
+/* Abschnittskopf im Seitenpanel (zusammenklappbar) */
+.s3-section-h {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--row-height);
+  padding: 0 var(--space-8) 0 var(--space-4);
+  font-size: var(--text-12);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-secondary);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.s3-section-h .s3-btn:last-child {
+  margin-left: auto;
+}
+
+/* Navigationsliste in Dialogen (Vorlagen, Einstellungs-Kategorien) */
+.s3-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  height: var(--control-md);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-md);
+  color: var(--fg-primary);
+  position: relative;
+  text-align: left;
+}
+.s3-nav-item:hover {
+  background: var(--bg-hover);
+}
+.s3-nav-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.s3-nav-item .s3-ico {
+  color: var(--fg-secondary);
+}
+.s3-nav-item.is-selected {
+  background: var(--selection-bg);
+}
+.s3-nav-item.is-selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Formularzeile in den Einstellungen */
+.s3-form-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--space-16);
+  padding: var(--space-12) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: start;
+}
+.s3-form-row:last-child {
+  border-bottom: 0;
+}
+.s3-form-k {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+}
+.s3-form-k strong {
+  font-weight: var(--weight-semibold);
+}
+.s3-form-k span {
+  font-size: var(--text-12);
+  line-height: var(--leading-16);
+  color: var(--fg-secondary);
+}
+
+/* ---------- 6. Virtuelle Tabelle: Scroll-Container und Zeilenfenster ---------- */
+.s3-table.is-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.s3-table.is-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.s3-table.is-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-sm);
+}
+.s3-table.is-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.s3-table.is-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.s3-tbody.is-virtual {
+  flex: none;
+}
+/* Fenster der gerenderten Zeilen; --i der Zeilen ist relativ zum Fenster. */
+.s3-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
+.s3-th-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--space-8);
+  cursor: default;
+}
+.s3-th-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.s3-th.is-num .s3-th-btn {
+  justify-content: flex-end;
+}
+.s3-th.has-btn {
+  padding: 0;
+}
+.s3-chk {
+  all: unset;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  cursor: default;
+}
+.s3-chk:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+.s3-table.is-compact .s3-td .s3-ico {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.s3-table-empty {
+  padding: var(--space-12) var(--space-8) var(--space-12) 36px;
+  color: var(--fg-secondary);
+}
+
+/* ---------- Objekt-Details (Screen 5) ---------- */
+/* Abschnittskopf nur als .mk-section-h in mockup.css vorhanden. */
+.s3-section-h {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--row-height);
+  padding: 0 var(--space-8) 0 var(--space-4);
+  font-size: var(--text-12);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-secondary);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.s3-section-h .s3-section-aside {
+  margin-left: auto;
+  margin-right: var(--space-4);
+  font-weight: var(--weight-regular);
+}
+.s3-section-h .s3-section-aside + .s3-btn,
+.s3-section-h > .s3-btn:last-child:not(:first-child) {
+  margin-left: auto;
+}
+.s3-section-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 36px;
+  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-16);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-12);
+}
+.s3-section-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px var(--space-16);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-12);
+}
+.s3-version-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 64px 56px;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--row-height);
+  padding: 0 var(--space-8) 0 var(--space-16);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.s3-version-row:hover {
+  background: var(--bg-hover);
+}
+.s3-version-row .s3-version-actions {
+  display: flex;
+  justify-content: flex-end;
+  visibility: hidden;
+}
+.s3-version-row:hover .s3-version-actions,
+.s3-version-row:focus-within .s3-version-actions {
+  visibility: visible;
+}
+/* Native Auswahlliste im Stil von .s3-input. */
+.s3-input > select {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}

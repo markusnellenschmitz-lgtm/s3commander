@@ -1,0 +1,40 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+coverage
+
+# Lokale Werkzeug- und Assistenzdateien, nicht Teil des Projekts
+CLAUDE.md
+**/CLAUDE.md
+.claude/
+design/BRIEFING.md
+design/s3-client-ui-handoff/reference/
+
+# Zugangsdaten und lokale Umgebungen
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
