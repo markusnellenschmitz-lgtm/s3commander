@@ -13,7 +13,6 @@ use super::parts::{PartProgress, PartSettings, part_numbers, part_range, with_re
 use crate::domain::error::StoreError;
 use crate::domain::local_path::{download_relative_path, numbered_path, partial_path};
 use crate::domain::multipart::PartPlan;
-use crate::domain::object::ListRequest;
 use crate::domain::settings::{ConflictDecision, ConflictPolicy, decide_conflict};
 use crate::domain::transfer::{Checksums, FileRange, ObjectRef, SelectedItem, md5_from_etag};
 use crate::ports::{LocalFiles, ObjectStore};
@@ -92,8 +91,7 @@ pub async fn resolve_downloads<S: ObjectStore>(
     let mut plan = TargetPlan::new(bucket, base_prefix, target_dir);
     for item in items {
         if item.is_folder {
-            let request = ListRequest::recursive(bucket, &item.key);
-            list_all(store, request, &CancelFlag::default(), |page| {
+            list_all(store, item.folder_listing(bucket)?, &CancelFlag::default(), |page| {
                 for object in page.objects {
                     plan.add(object.key, object.size, object.etag, object.last_modified_ms);
                 }
@@ -280,6 +278,7 @@ mod tests {
     use crate::domain::details::ObjectHead;
     use crate::domain::error::ServiceError;
     use crate::domain::multipart::MIB;
+    use crate::domain::object::ListRequest;
     use crate::domain::object::{ListPage, ObjectEntry};
     use std::time::Duration;
 

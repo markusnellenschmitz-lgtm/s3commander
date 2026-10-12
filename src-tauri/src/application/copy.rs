@@ -15,7 +15,6 @@ use super::upload::ResumeState;
 use crate::domain::error::{ServiceError, StoreError};
 use crate::domain::multipart::{MAX_SINGLE_PUT_SIZE, MIB, PartPlan};
 use crate::domain::naming::{base_name, numbered_name, parent_prefix};
-use crate::domain::object::ListRequest;
 use crate::domain::transfer::{Checksums, CompletedPart, ObjectRef, SelectedItem};
 use crate::ports::ObjectStore;
 
@@ -101,12 +100,16 @@ pub async fn resolve_copies<S: ObjectStore, T: ObjectStore>(
             });
         };
         if item.is_folder {
-            let request = ListRequest::recursive(source.bucket, &item.key);
-            list_all(sources, request, &CancelFlag::default(), |page| {
-                for entry in page.objects {
-                    add(entry.key, entry.size);
-                }
-            })
+            list_all(
+                sources,
+                item.folder_listing(source.bucket)?,
+                &CancelFlag::default(),
+                |page| {
+                    for entry in page.objects {
+                        add(entry.key, entry.size);
+                    }
+                },
+            )
             .await?;
         } else {
             add(item.key.clone(), item.size);

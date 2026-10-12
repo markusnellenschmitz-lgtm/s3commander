@@ -13,7 +13,6 @@ use super::parts::PartProgress;
 use super::upload::ResumeState;
 use crate::domain::error::StoreError;
 use crate::domain::naming::{RenameOutcome, RenameProgress, child_key, renamed_key};
-use crate::domain::object::ListRequest;
 use crate::domain::transfer::{ObjectRef, SelectedItem};
 use crate::ports::{ObjectStore, StoreProvider};
 use futures_util::{StreamExt, TryStreamExt, stream};
@@ -154,14 +153,9 @@ async fn sources<S: ObjectStore>(
         return Ok(vec![(item.key.clone(), item.size)]);
     }
     let mut sources = Vec::new();
-    list_all(
-        store,
-        ListRequest::recursive(bucket, &item.key),
-        &CancelFlag::default(),
-        |page| {
-            sources.extend(page.objects.into_iter().map(|o| (o.key, o.size)));
-        },
-    )
+    list_all(store, item.folder_listing(bucket)?, &CancelFlag::default(), |page| {
+        sources.extend(page.objects.into_iter().map(|o| (o.key, o.size)));
+    })
     .await?;
     Ok(sources)
 }

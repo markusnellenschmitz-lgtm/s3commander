@@ -2,6 +2,7 @@
 
 use super::bandwidth::BandwidthLimit;
 use super::error::{ErrorReport, StoreError};
+use super::object::ListRequest;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -159,6 +160,24 @@ pub struct SelectedItem {
     pub last_modified_ms: Option<i64>,
 }
 
+impl SelectedItem {
+    /// Rekursives Listing des gewählten Ordners, Grundlage für Löschen, Verschieben und Herunterladen.
+    ///
+    /// # Errors
+    /// `InvalidConfig`, wenn der Eintrag kein Ordner-Präfix mit abschließendem `/` ist. Sonst träfe
+    /// `a/b` auch `a/bild.jpg`, und ein leerer Key den ganzen Bucket.
+    pub fn folder_listing(&self, bucket: &str) -> Result<ListRequest, StoreError> {
+        let is_prefix = self.key.ends_with('/') && !self.key.trim_matches('/').is_empty();
+        if !self.is_folder || !is_prefix {
+            return Err(StoreError::InvalidConfig(format!(
+                "Kein gültiger Ordner: „{}“",
+                self.key
+            )));
+        }
+        Ok(ListRequest::recursive(bucket, &self.key))
+    }
+}
+
 /// Bucket und Key eines Objekts, wie die Oberfläche sie anzeigt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ObjectAddress {
@@ -259,6 +278,35 @@ pub fn is_retryable(error: &StoreError) -> bool {
 mod tests {
     use super::*;
     use crate::domain::error::ServiceError;
+
+    fn selected(key: &str, is_folder: bool) -> SelectedItem {
+        SelectedItem {
+            key: key.into(),
+            is_folder,
+            size: 0,
+            etag: None,
+            last_modified_ms: None,
+        }
+    }
+
+    #[test]
+    fn lists_only_real_folders_recursively() {
+        assert_eq!(
+            selected("p/d/", true).folder_listing("b"),
+            Ok(ListRequest::recursive("b", "p/d/"))
+        );
+        // Ohne `/` träfe das Präfix auch Geschwister wie `p/dateien.txt`, leer den ganzen Bucket.
+        for key in ["p/d", "", "/"] {
+            assert!(
+                matches!(
+                    selected(key, true).folder_listing("b"),
+                    Err(StoreError::InvalidConfig(_))
+                ),
+                "{key:?}"
+            );
+        }
+        assert!(selected("p/d/", false).folder_listing("b").is_err());
+    }
 
     #[test]
     fn builds_keys_from_prefix_and_relative_paths() {

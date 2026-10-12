@@ -13,7 +13,6 @@ use super::listing::list_all;
 use super::parts::{RetryPolicy, with_retries};
 use crate::domain::deletion::{DeleteFailure, DeleteOutcome, DeletePreview, DeleteProgress, MAX_DELETE_BATCH};
 use crate::domain::error::StoreError;
-use crate::domain::object::ListRequest;
 use crate::domain::transfer::SelectedItem;
 use crate::ports::{ObjectStore, StoreProvider};
 use futures_util::{StreamExt, stream};
@@ -60,8 +59,7 @@ pub async fn plan_delete<S: ObjectStore>(
     let mut bytes = 0;
     for item in items {
         if item.is_folder {
-            let request = ListRequest::recursive(bucket, &item.key);
-            list_all(store, request, &CancelFlag::default(), |page| {
+            list_all(store, item.folder_listing(bucket)?, &CancelFlag::default(), |page| {
                 for object in page.objects {
                     bytes += object.size;
                     keys.push(object.key);
@@ -239,6 +237,7 @@ mod tests {
     use super::*;
     use crate::application::test_support::{FakeProvider, FakeStore};
     use crate::domain::error::ServiceError;
+    use crate::domain::object::ListRequest;
     use crate::domain::object::{ListPage, ObjectEntry};
     use std::sync::Arc;
     use std::time::Duration;
@@ -292,6 +291,18 @@ mod tests {
         assert_eq!(plan.keys, ["p/d/", "p/d/a", "p/d/x/b", "p/c.txt"]);
         assert_eq!((plan.bytes, plan.versioned), (35, Some(true)));
         assert_eq!(store.requests()[0], ListRequest::recursive("b", "p/d/"));
+    }
+
+    #[tokio::test]
+    async fn never_widens_a_folder_without_slash_to_its_siblings() {
+        let store = FakeStore::with_pages(vec![ListPage {
+            objects: vec![entry("p/d", 1), entry("p/dateien.txt", 2)],
+            prefixes: vec![],
+            next_token: None,
+        }]);
+        let result = plan_delete(&store, "b", &[item("p/d", true, 0)]).await;
+        assert!(matches!(result, Err(StoreError::InvalidConfig(_))));
+        assert_eq!(store.requests(), Vec::<ListRequest>::new());
     }
 
     #[tokio::test]
