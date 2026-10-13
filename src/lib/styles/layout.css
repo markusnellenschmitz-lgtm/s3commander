@@ -22,9 +22,11 @@ textarea {
   background: var(--bg-app);
   color: var(--fg-primary);
 }
+/* min-width: 0, sonst wächst die Grid-Zeile mit langen Werten (etwa Keys in der Detailleiste) über das Fenster hinaus. */
 .app-body {
   display: flex;
   min-height: 0;
+  min-width: 0;
 }
 .app-main {
   flex: 1;

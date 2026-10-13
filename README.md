@@ -14,6 +14,29 @@ noch Java oder eine andere Laufzeitumgebung.
 [![CI](https://github.com/markusnellenschmitz-lgtm/s3commander/actions/workflows/ci.yml/badge.svg)](https://github.com/markusnellenschmitz-lgtm/s3commander/actions/workflows/ci.yml)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
 
+![Hauptfenster: Verbindungsbaum, Objektliste eines Buckets und Eigenschaften eines Objekts](docs/screenshots/hauptansicht.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/zwei-panel.png" alt="Zwei-Panel-Ansicht mit lokalem Ordner links und Bucket rechts"></td>
+    <td width="50%"><img src="docs/screenshots/transfers.png" alt="Laufende Downloads im Transfer-Panel"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Zwei-Panel-Ansicht: lokal und Bucket nebeneinander</em></td>
+    <td align="center"><em>Parallele Downloads in Teilen mit Fortschritt und Restzeit</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/verbindung.png" alt="Dialog für eine neue Verbindung mit Anbieter-Vorlagen"></td>
+    <td width="50%"><img src="docs/screenshots/dunkel.png" alt="Hauptfenster im dunklen Design"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Neue Verbindung mit Vorlagen für gängige Anbieter</em></td>
+    <td align="center"><em>Dunkles Design, folgt der Einstellung des Systems</em></td>
+  </tr>
+</table>
+
+<sub>Die Bilder zeigen Testdaten aus der Browser-Vorschau (<code>npm run dev</code>).</sub>
+
 ## Download
 
 Fertige Versionen gibt es unter **[Releases](https://github.com/markusnellenschmitz-lgtm/s3commander/releases)**:

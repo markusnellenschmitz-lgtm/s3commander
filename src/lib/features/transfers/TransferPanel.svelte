@@ -299,6 +299,10 @@
   .grow {
     flex: 1;
   }
+  /* Summen, Tempo und Restzeit bleiben einzeilig; wird es eng, gibt der Gesamtbalken nach. */
+  .s3-num {
+    white-space: nowrap;
+  }
   .speed {
     display: inline-flex;
     align-items: center;

@@ -228,23 +228,6 @@ button.s3-sb-item:focus-visible {
   pointer-events: none;
 }
 
-/* Abschnittskopf im Seitenpanel (zusammenklappbar) */
-.s3-section-h {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  height: var(--row-height);
-  padding: 0 var(--space-8) 0 var(--space-4);
-  font-size: var(--text-12);
-  font-weight: var(--weight-semibold);
-  color: var(--fg-secondary);
-  background: var(--bg-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.s3-section-h .s3-btn:last-child {
-  margin-left: auto;
-}
-
 /* Navigationsliste in Dialogen (Vorlagen, Einstellungs-Kategorien) */
 .s3-nav-item {
   display: flex;

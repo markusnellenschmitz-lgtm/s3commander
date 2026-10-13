@@ -32,7 +32,7 @@ export const FAKE_PRESETS: ProviderPreset[] = [
     label: 'AWS S3',
     endpointTemplate: 'https://s3.{region}.amazonaws.com',
     defaultRegion: 'eu-central-1',
-    regions: ['eu-central-1', 'eu-west-1', 'us-east-1'],
+    regions: ['eu-central-1', 'eu-west-1', 'eu-north-1', 'us-east-1', 'us-west-2'],
     addressing: 'virtual-hosted',
     quirks: { urlEncodedListing: true, crc32cChecksums: true },
     selfHosted: false,
