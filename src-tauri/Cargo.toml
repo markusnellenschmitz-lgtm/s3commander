@@ -1,6 +1,6 @@
 [package]
 name = "s3-commander"
-version = "0.2.0"
+version = "0.3.0"
 description = "Desktop-Client für S3-kompatiblen Object Storage unter Windows und Linux"
 authors = ["S3 Commander contributors"]
 license = "MIT"

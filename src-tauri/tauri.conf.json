@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "S3 Commander",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identifier": "app.s3commander",
   "build": {
     "frontendDist": "../dist",
@@ -32,6 +32,8 @@
   "bundle": {
     "active": true,
     "publisher": "S3 Commander",
+    "shortDescription": "Desktop-Client für S3-kompatiblen Object Storage",
+    "longDescription": "Schneller Desktop-Client für Amazon S3 und S3-kompatiblen Object Storage (MinIO, Cloudflare R2, Backblaze B2, Wasabi, Hetzner, Ceph, Garage): Tabs, Zwei-Panel-Ansicht, Drag and Drop, parallele Transfers und eine Objektliste für Millionen Einträge.",
     "targets": ["nsis"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "windows": {
