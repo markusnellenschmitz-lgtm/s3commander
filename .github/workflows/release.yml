@@ -20,7 +20,7 @@ jobs:
     outputs:
       id: ${{ steps.create.outputs.id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Tag gegen App-Version prüfen
         run: |
@@ -36,15 +36,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BODY: |
             **Windows**
-            - Installer (empfohlen): `S3 Commander_*_x64-setup.exe`
+            - Installer (empfohlen): `S3.Commander_*_x64-setup.exe`
             - Portable EXE ohne Installation: `S3-Commander_*_x64-portable.exe` (braucht WebView2, unter Windows 11 vorhanden)
 
             Die Windows-Dateien sind nicht code-signiert; SmartScreen fragt deshalb beim ersten Start nach
             („Weitere Informationen › Trotzdem ausführen“).
 
             **Linux** (x86_64)
-            - Debian, Ubuntu, Mint: `S3 Commander_*_amd64.deb`
-            - Andere Distributionen: `S3 Commander_*_amd64.AppImage` (ausführbar machen und starten)
+            - Debian, Ubuntu, Mint: `S3.Commander_*_amd64.deb`
+            - Andere Distributionen: `S3.Commander_*_amd64.AppImage` (ausführbar machen und starten)
 
             Zugangsdaten liegen unter Linux im Schlüsselbund (Secret Service, etwa GNOME Keyring oder KWallet).
         run: |
@@ -69,7 +69,7 @@ jobs:
             os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Linux-Pakete für Tauri
         if: runner.os == 'Linux'
@@ -77,7 +77,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev patchelf
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm

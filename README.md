@@ -20,10 +20,10 @@ Fertige Versionen gibt es unter **[Releases](https://github.com/markusnellenschm
 
 | Datei                                     | Für wen                                                                                            |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `S3 Commander_<version>_x64-setup.exe`    | Windows, Installer (empfohlen): Startmenü-Eintrag, Deinstallation, installiert bei Bedarf WebView2 |
+| `S3.Commander_<version>_x64-setup.exe`    | Windows, Installer (empfohlen): Startmenü-Eintrag, Deinstallation, installiert bei Bedarf WebView2 |
 | `S3-Commander_<version>_x64-portable.exe` | Windows, portable EXE ohne Installation, einfach starten                                           |
-| `S3 Commander_<version>_amd64.deb`        | Linux: Debian, Ubuntu, Mint und Verwandte (`sudo apt install ./S3*.deb`)                           |
-| `S3 Commander_<version>_amd64.AppImage`   | Linux: alle anderen Distributionen, ohne Installation (`chmod +x` und starten)                     |
+| `S3.Commander_<version>_amd64.deb`        | Linux: Debian, Ubuntu, Mint und Verwandte (`sudo apt install ./S3*.deb`)                           |
+| `S3.Commander_<version>_amd64.AppImage`   | Linux: alle anderen Distributionen, ohne Installation (`chmod +x` und starten)                     |
 
 **Voraussetzungen**
 
