@@ -1,5 +1,8 @@
 // Filter für die Objektliste (UI-SPEC §3: Suchfeld, Typ, Größe, Datum). Reine Logik ohne DOM.
+// Die Auswahl im Filtermenü wird zu einer Abfrage mit absoluten Grenzen (`EntryQuery`); dieselbe
+// Abfrage filtert die Liste in der Oberfläche und, bei sehr großen Ordnern, im Backend.
 
+import type { EntryQuery } from '../../core/backend';
 import { kindOf, type FileKind, type S3Entry } from './entry';
 
 const MiB = 1024 ** 2;
@@ -60,24 +63,42 @@ export function namePattern(text: string): RegExp | null {
   return new RegExp(escaped, 'i');
 }
 
-/** Prüft-Funktion für die Datenquelle; null, wenn nichts gefiltert wird. */
-export function filterPredicate(filter: ObjectFilter, nowMs: number): ((entry: S3Entry) => boolean) | null {
+const finiteOrNull = (value: number): number | null => (Number.isFinite(value) ? value : null);
+
+/** Abfrage mit absoluten Grenzen; null, wenn nichts gefiltert wird. */
+export function filterQuery(filter: ObjectFilter, nowMs: number): EntryQuery | null {
   if (!isActive(filter)) return null;
-  const pattern = namePattern(filter.text);
   const size = SIZE_OPTIONS.find((o) => o.id === filter.size) ?? SIZE_OPTIONS[0];
   const date = DATE_OPTIONS.find((o) => o.id === filter.date) ?? DATE_OPTIONS[0];
-  return (entry) => {
-    if (pattern && !pattern.test(entry.name)) return false;
-    if (filter.kind !== 'all' && kindOf(entry) !== filter.kind) return false;
-    if (filter.size !== 'all' && !inRange(entry.size, size.min, size.max)) return false;
-    if (filter.date === 'all') return true;
-    if (entry.lastModified === undefined) return false;
-    const ageDays = (nowMs - entry.lastModified) / DAY_MS;
-    return ageDays >= date.newestDays && ageDays <= date.oldestDays;
+  const bySize = filter.size !== 'all';
+  const byDate = filter.date !== 'all';
+  return {
+    text: filter.text.trim(),
+    kind: filter.kind === 'all' ? null : filter.kind,
+    minSize: bySize ? size.min : null,
+    maxSize: bySize ? finiteOrNull(size.max) : null,
+    modifiedFrom: byDate ? finiteOrNull(nowMs - date.oldestDays * DAY_MS) : null,
+    modifiedTo: byDate ? nowMs - date.newestDays * DAY_MS : null,
   };
 }
 
-/** Ordner haben keine Größe und fallen bei einem Größenfilter heraus. */
-function inRange(size: number | undefined, min: number, max: number): boolean {
-  return size !== undefined && size >= min && size < max;
+/** Prüft-Funktion zu einer Abfrage, für Listen in der Oberfläche. */
+export function entryMatcher(query: EntryQuery): (entry: S3Entry) => boolean {
+  const pattern = namePattern(query.text);
+  const bySize = query.minSize !== null || query.maxSize !== null;
+  const byDate = query.modifiedFrom !== null || query.modifiedTo !== null;
+  return (entry) => {
+    if (pattern && !pattern.test(entry.name)) return false;
+    if (query.kind !== null && kindOf(entry) !== query.kind) return false;
+    if (bySize && !within(entry.size, query.minSize, query.maxSize, false)) return false;
+    return !byDate || within(entry.lastModified, query.modifiedFrom, query.modifiedTo, true);
+  };
+}
+
+/** Wert zwischen den Grenzen; ohne Wert (Ordner haben keine Größe und kein Datum) nie. */
+function within(value: number | undefined, min: number | null, max: number | null, maxIncluded: boolean): boolean {
+  if (value === undefined) return false;
+  if (min !== null && value < min) return false;
+  if (max === null) return true;
+  return maxIncluded ? value <= max : value < max;
 }

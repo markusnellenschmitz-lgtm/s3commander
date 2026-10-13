@@ -10,7 +10,7 @@ import type {
   FolderLocation,
   ObjectSelection,
 } from '../../core/backend';
-import { toBackendError } from '../../core/backend';
+import { toBackendError, type SelectionRequest } from '../../core/backend';
 
 /** closed → preparing → confirm → deleting → (closed | result); Fehler führen zu result. */
 export type DeletePhase = 'closed' | 'preparing' | 'confirm' | 'deleting' | 'result';
@@ -95,11 +95,9 @@ export class DeleteViewModel {
   }
 
   /** Entf öffnet den Dialog für die Auswahl; liefert true, wenn das Kürzel behandelt wurde. */
-  handleShortcut(key: string, selection: () => ObjectSelection | null): boolean {
-    if (key !== DELETE_KEY || this.isOpen) return false;
-    const current = selection();
-    if (!current) return false;
-    void this.open(current);
+  handleShortcut(key: string, request: SelectionRequest): boolean {
+    if (key !== DELETE_KEY || this.isOpen || request.count === 0) return false;
+    void request.resolve().then((selection) => (selection ? this.open(selection) : undefined));
     return true;
   }
 

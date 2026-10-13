@@ -1,6 +1,6 @@
 // Objekt-Einträge eines Präfix (UI-SPEC §7) und ihre fachlichen Regeln.
 
-import type { SelectedItem } from '../../core/backend';
+import type { FileKind, SelectedItem } from '../../core/backend';
 import type { SortState } from '../../core/table/types';
 import type { SpriteIconName } from '../../ui/icons/sprite';
 
@@ -17,7 +17,7 @@ export interface S3Entry {
   etag?: string;
 }
 
-export type FileKind = 'folder' | 'archive' | 'text' | 'lock' | 'file';
+export type { FileKind };
 
 /** Icon je Dateityp laut DESIGN-SYSTEM.md. */
 export const ICON_BY_KIND: Readonly<Record<FileKind, SpriteIconName>> = {

@@ -1,9 +1,12 @@
-// Vollständig geladene Liste eines Präfix. Für sehr große Listings kommt eine Quelle,
-// die Fenster aus dem Rust-Backend (SQLite-Cache) nachlädt, mit derselben Schnittstelle.
+// Vollständig geladene Liste eines Präfix. Sehr große Listings lädt WindowSource fensterweise
+// aus dem Backend, mit derselben Schnittstelle.
 
+import type { EntryQuery } from '../../core/backend';
+import type { Selection } from '../../core/table/selection.svelte';
 import type { SortState } from '../../core/table/types';
 import { compareEntries, type S3Entry } from './entry';
-import type { ObjectSource } from './objectSource';
+import { entryMatcher } from './objectFilter';
+import { selectedEntries, type ObjectSource } from './objectSource';
 
 export class ArraySource implements ObjectSource {
   version = $state(0);
@@ -14,6 +17,7 @@ export class ArraySource implements ObjectSource {
   #index = new Map<string, number>();
   #sort: SortState;
   #filter: ((entry: S3Entry) => boolean) | null = null;
+  readonly isComplete = true;
 
   constructor(rows: readonly S3Entry[], sort: SortState) {
     this.#sort = sort;
@@ -75,10 +79,14 @@ export class ArraySource implements ObjectSource {
     this.#applySort();
   }
 
-  /** Zeigt nur Einträge, für die `filter` true liefert; null zeigt wieder alle. */
-  setFilter(filter: ((entry: S3Entry) => boolean) | null): void {
-    this.#filter = filter;
+  /** Zeigt nur Treffer der Abfrage; null zeigt wieder alle. */
+  setFilter(query: EntryQuery | null): void {
+    this.#filter = query ? entryMatcher(query) : null;
     this.#applyFilter();
+  }
+
+  async resolveSelected(selection: Selection): Promise<S3Entry[]> {
+    return selectedEntries(selection, this);
   }
 
   #applySort(): void {

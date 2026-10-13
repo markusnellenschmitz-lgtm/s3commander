@@ -182,3 +182,49 @@ describe('Tastatur', () => {
     expect(table.keyDown('ArrowDown', none, 10).handled).toBe(false);
   });
 });
+
+/** Quelle, die wie Fenster nur geladene Zeilen kennt (anfangs 0–4). */
+class LazySource extends KeyListSource {
+  loaded = new Set([0, 1, 2, 3, 4]);
+  requests: [number, number][] = [];
+
+  override get(index: number): string | undefined {
+    return this.loaded.has(index) ? super.get(index) : undefined;
+  }
+
+  override keyAt(index: number): string | undefined {
+    return this.get(index);
+  }
+
+  override indexOfKey(key: string): number {
+    const index = super.indexOfKey(key);
+    return this.loaded.has(index) ? index : -1;
+  }
+
+  async ensureLoaded(start: number, end: number): Promise<void> {
+    this.requests.push([start, end]);
+    for (let i = start; i <= end; i++) this.loaded.add(i);
+  }
+}
+
+describe('Bereichsauswahl über nicht geladene Zeilen', () => {
+  it('lädt den Bereich vor der Auswahl, damit keine Zeile fehlt', async () => {
+    const lazy = new LazySource(Array.from({ length: 20 }, (_, i) => `k${i}`));
+    source = lazy;
+    table.click(2, none);
+    lazy.loaded.add(15);
+    table.click(15, shift);
+    await Promise.resolve();
+    expect(lazy.requests).toEqual([[2, 15]]);
+    expect(selection.count(20)).toBe(14);
+  });
+
+  it('wählt einen Bereich über alles ohne Laden aus', () => {
+    const lazy = new LazySource(Array.from({ length: 5 }, (_, i) => `k${i}`));
+    source = lazy;
+    table.click(0, none);
+    table.click(4, shift);
+    expect(lazy.requests).toEqual([]);
+    expect(selection.isInverted).toBe(true);
+  });
+});

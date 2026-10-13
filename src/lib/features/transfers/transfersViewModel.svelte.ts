@@ -9,7 +9,7 @@ import type {
   TransferSnapshot,
   TransferUpdate,
 } from '../../core/backend';
-import { toBackendError } from '../../core/backend';
+import { toBackendError, type SelectionRequest } from '../../core/backend';
 import { changedFolders } from './transferText';
 import { localFolder } from '../../core/localPath';
 import { TransferList } from './transferList.svelte';
@@ -34,8 +34,7 @@ export const TRANSFER_FILTERS: readonly { id: TransferFilter; label: string }[] 
 /** Was die Kürzel Strg+U und Strg+D gerade betreffen würden. */
 export interface TransferShortcutContext {
   uploadTarget: FolderLocation | null;
-  /** Erst beim Kürzel ausgewertet, weil die Auswahl sehr groß sein kann. */
-  selectedObjects: () => ObjectSelection | null;
+  selection: SelectionRequest;
 }
 
 export interface TransfersDeps {
@@ -150,7 +149,9 @@ export class TransfersViewModel {
       case 'u':
         return this.#start(context.uploadTarget, (target) => this.upload(target));
       case 'd':
-        return this.#start(context.selectedObjects(), (selection) => this.download(selection));
+        if (context.selection.count === 0) return false;
+        void context.selection.resolve().then((selection) => (selection ? this.download(selection) : undefined));
+        return true;
       default:
         return false;
     }

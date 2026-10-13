@@ -19,6 +19,7 @@ pub mod share;
 pub mod sync;
 pub mod transfers;
 pub mod upload;
+pub mod windows;
 
 #[cfg(test)]
 pub(crate) mod test_support;

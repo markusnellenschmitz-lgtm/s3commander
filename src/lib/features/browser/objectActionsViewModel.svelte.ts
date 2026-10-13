@@ -128,9 +128,11 @@ export class ObjectActionsViewModel {
   /** Schreibt "s3://bucket/key" der Auswahl in die Zwischenablage, eine Zeile je Eintrag. */
   copyPath(): void {
     const location = this.#deps.browser.location;
-    const entries = this.#deps.browser.selectedEntries;
-    if (!location || entries.length === 0) return;
-    void this.#deps.writeText(entries.map((e) => `s3://${location.bucket}/${e.key}`).join('\n'));
+    if (!location) return;
+    void this.#deps.browser.resolveSelectedEntries().then((entries) => {
+      if (entries.length > 0)
+        void this.#deps.writeText(entries.map((e) => `s3://${location.bucket}/${e.key}`).join('\n'));
+    });
   }
 
   /** Dialog „Teilen“ für eine einzeln gewählte Datei. */
@@ -168,9 +170,9 @@ export class ObjectActionsViewModel {
 
   /** Einträge passend zur Auswahl; nicht Mögliches ist gesperrt statt versteckt. */
   get entries(): ObjectMenuEntry[] {
-    const selected = this.#deps.browser.selectedEntries;
+    const count = this.#deps.browser.selectedCount;
     const cannotPaste = !this.#deps.clipboard.canPaste;
-    if (selected.length === 0) {
+    if (count === 0) {
       return [
         this.#item('paste', 'Einfügen', 'clipboard-paste', cannotPaste),
         this.#item('newFolder', 'Neuer Ordner', 'folder-plus'),
@@ -179,9 +181,11 @@ export class ObjectActionsViewModel {
         this.#item('refresh', 'Aktualisieren', 'refresh-cw'),
       ];
     }
-    const single = selected.length === 1;
-    const singleFolder = single && selected[0].isPrefix;
-    const singleFile = single && !selected[0].isPrefix;
+    // In sehr großen Ordnern kann der gewählte Eintrag ungeladen sein; dann gilt er als unbekannt.
+    const single = count === 1;
+    const [first] = this.#deps.browser.selectedEntries;
+    const singleFolder = single && first?.isPrefix === true;
+    const singleFile = single && first?.isPrefix === false;
     return tidySeparators<ObjectActionId, SpriteIconName>([
       ...(singleFolder ? [this.#item('open', 'Öffnen', 'folder-open')] : []),
       this.#item('download', 'Herunterladen', 'download'),
@@ -214,8 +218,10 @@ export class ObjectActionsViewModel {
     return { profileId: location.profileId, bucket: location.bucket, key: entry.key };
   }
 
+  /** Löst die Auswahl auf (in sehr großen Ordnern über das Backend) und führt die Aktion damit aus. */
   #withSelection(action: (selection: ObjectSelection) => void): void {
-    const selection = this.#deps.browser.selectedObjects;
-    if (selection) action(selection);
+    void this.#deps.browser.resolveSelection().then((selection) => {
+      if (selection) action(selection);
+    });
   }
 }

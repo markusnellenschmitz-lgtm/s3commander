@@ -100,7 +100,7 @@
   });
   const details = new DetailsViewModel({ backend, writeText, onChanged: refreshFolder });
   const share = new ShareDialogViewModel({ backend, writeText });
-  const filter = new ObjectFilterViewModel({ source: browser.source, selection: browser.selection });
+  const filter = new ObjectFilterViewModel({ target: browser });
   const view = new ViewPreferences(createLocalStorageStore());
   browser.compact = view.value.compact;
   browser.hiddenColumns = view.value.hiddenColumns;

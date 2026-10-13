@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ObjectFilterViewModel } from './objectFilterViewModel.svelte';
 import { ArraySource } from './arraySource.svelte';
 import { Selection } from '../../core/table/selection.svelte';
+import { filterSource } from './objectSource';
 import { file, folder } from '../../../test/fakes';
 
 const MiB = 1024 ** 2;
@@ -12,7 +13,8 @@ function setup() {
     { column: 'name', dir: 1 },
   );
   const selection = new Selection();
-  const vm = new ObjectFilterViewModel({ source, selection, now: () => 0 });
+  const target = { applyFilter: (query: Parameters<typeof filterSource>[2]) => filterSource(source, selection, query) };
+  const vm = new ObjectFilterViewModel({ target, now: () => 0 });
   return { source, selection, vm };
 }
 

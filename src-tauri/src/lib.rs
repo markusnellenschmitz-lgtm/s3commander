@@ -20,8 +20,8 @@ pub mod ports;
 use adapters::NativeShareSheet;
 use adapters::clock::SystemClock;
 use adapters::commands::{
-    self, AppDeletes, AppDetails, AppFolders, AppNaming, AppService, AppSettingsService, AppSync, SharedService,
-    Transfers,
+    self, AppDeletes, AppDetails, AppFolders, AppNaming, AppService, AppSettingsService, AppSync, AppWindows,
+    SharedService, Transfers,
 };
 use adapters::credential_store::{DEFAULT_SERVICE, KeyringCredentialStore};
 use adapters::local_files::StdLocalFiles;
@@ -40,6 +40,7 @@ use application::naming::{NamingService, NamingSettings};
 use application::settings::SettingsService;
 use application::sync::SyncService;
 use application::transfers::{TransferManager, TransferSettings};
+use application::windows::ListingWindowService;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, Runtime};
@@ -99,17 +100,14 @@ pub fn build_folders(
     service: &SharedService,
     cache_dir: &Path,
     cache_enabled: bool,
-) -> Result<AppFolders, domain::error::CacheError> {
+) -> Result<(AppFolders, AppWindows), domain::error::CacheError> {
     let cache = SqliteListingCache::open(&cache_dir.join(CACHE_FILE_NAME)).or_else(|error| {
         log::warn!("Listing-Cache nur im Arbeitsspeicher: {error}");
         SqliteListingCache::in_memory()
     })?;
-    Ok(FolderService::new(
-        Arc::clone(service),
-        cache,
-        SystemClock,
-        cache_enabled,
-    ))
+    let cache = Arc::new(cache);
+    let folders = FolderService::new(Arc::clone(service), Arc::clone(&cache), SystemClock, cache_enabled);
+    Ok((folders, Arc::new(ListingWindowService::new(cache))))
 }
 
 /// Baut den Abgleich lokal ↔ Bucket; er teilt sich die S3-Clients mit dem Verbindungsdienst.
@@ -177,7 +175,9 @@ pub fn run() -> tauri::Result<()> {
             app.manage(build_sync(&service));
             app.manage(build_share_sheet(app)?);
             let cache_dir = app.path().app_cache_dir()?;
-            app.manage(build_folders(&service, &cache_dir, settings_cache_enabled)?);
+            let (folders, windows) = build_folders(&service, &cache_dir, settings_cache_enabled)?;
+            app.manage(folders);
+            app.manage(windows);
             app.manage(service);
             app.manage(transfers);
             Ok(())
@@ -193,6 +193,11 @@ pub fn run() -> tauri::Result<()> {
             commands::list_buckets,
             commands::list_folder,
             commands::cancel_listing,
+            commands::release_listing,
+            commands::open_window,
+            commands::window_entries,
+            commands::window_selection,
+            commands::close_window,
             commands::cache_stats,
             commands::list_local_dir,
             commands::plan_sync,
@@ -271,5 +276,24 @@ mod tests {
         let _naming = build_naming(&service);
         let _details = build_details(&service);
         assert_eq!(Arc::strong_count(&service), 4);
+    }
+
+    #[test]
+    fn builds_listing_and_windows_on_one_cache_file() {
+        let _guard = adapters::credential_store::lock_native_store();
+        let dir = tempfile::tempdir().unwrap();
+        let service: SharedService = Arc::new(build_service(dir.path()));
+        let (folders, windows) = build_folders(&service, dir.path(), true).unwrap();
+        assert!(dir.path().join(CACHE_FILE_NAME).exists());
+        assert_eq!(folders.cache_stats().unwrap().folders, 0);
+        let sort = domain::listing_window::WindowSort {
+            column: domain::listing_window::SortColumn::Name,
+            dir: 1,
+        };
+        let view = windows
+            .open(1, &domain::listing_window::WindowFilter::default(), sort)
+            .unwrap();
+        assert_eq!(view.stats.count, 0, "unbekanntes Listing ist leer");
+        assert_eq!(windows.entries(view.view_id, 0, 10).unwrap().len(), 0);
     }
 }

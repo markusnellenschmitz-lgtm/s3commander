@@ -48,6 +48,11 @@ export function createTauriBackend(
       }),
     startSync: (planId) => call('start_sync', { planId }),
     cancelListing: (listingId) => call('cancel_listing', { listingId }),
+    releaseListing: (listingId) => call('release_listing', { listingId }),
+    openWindow: (listingId, filter, sort) => call('open_window', { listingId, filter, sort }),
+    windowEntries: (viewId, offset, limit) => call('window_entries', { viewId, offset, limit }),
+    windowSelection: (viewId, excluded) => call('window_selection', { viewId, excluded }),
+    closeWindow: (viewId) => call('close_window', { viewId }),
     prepareDelete: (folder, items) =>
       call('prepare_delete', { profileId: folder.profileId, bucket: folder.bucket, items }),
     deleteObjects(planId, onProgress) {

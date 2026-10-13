@@ -17,6 +17,8 @@ export interface RowSource<T> {
   indexOfKey(key: string): number;
   /** Optional: Bereich wird gleich angezeigt, bitte laden. */
   ensureRange?(start: number, end: number): void;
+  /** Optional: Bereich vollständig laden, etwa bevor eine Bereichsauswahl seine Schlüssel braucht. */
+  ensureLoaded?(start: number, end: number): Promise<void>;
 }
 
 export interface Column<T> {

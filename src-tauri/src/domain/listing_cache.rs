@@ -1,6 +1,7 @@
 //! Typen des Listing-Caches: welcher Ordner gemeint ist, wie ein Listing den Cache nutzt und
 //! welche Seiten an die Oberfläche gehen.
 
+use super::listing_window::{ListingId, WindowRef};
 use super::object::ListPage;
 use serde::Serialize;
 
@@ -33,19 +34,25 @@ pub enum ListingMode {
 }
 
 /// Eine Seite für die Oberfläche; `cached_ms` ist gesetzt, wenn sie aus dem Cache stammt,
-/// und nennt den Zeitpunkt des gespeicherten Listings.
+/// und nennt den Zeitpunkt des gespeicherten Listings. Bei sehr großen Ordnern bleibt die Seite
+/// leer und `window` nennt das Listing, aus dem die Oberfläche Fenster lädt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FolderPage {
     #[serde(flatten)]
     pub page: ListPage,
     pub cached_ms: Option<i64>,
+    pub window: Option<WindowRef>,
 }
 
 impl FolderPage {
     #[must_use]
     pub fn live(page: ListPage) -> Self {
-        Self { page, cached_ms: None }
+        Self {
+            page,
+            cached_ms: None,
+            window: None,
+        }
     }
 
     #[must_use]
@@ -53,8 +60,27 @@ impl FolderPage {
         Self {
             page,
             cached_ms: Some(fetched_ms),
+            window: None,
         }
     }
+
+    /// Nur der Verweis auf das Listing, ohne Einträge.
+    #[must_use]
+    pub fn windowed(window: WindowRef, cached_ms: Option<i64>) -> Self {
+        Self {
+            page: ListPage::default(),
+            cached_ms,
+            window: Some(window),
+        }
+    }
+}
+
+/// Ein vollständig gespeichertes Listing eines Ordners.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StoredListing {
+    pub id: ListingId,
+    pub fetched_ms: i64,
+    pub entries: u64,
 }
 
 /// Umfang des Caches für Einstellungen › Cache.
@@ -96,5 +122,18 @@ mod tests {
             serde_json::Value::Null
         );
         assert_eq!(FolderKey::new("p", "b", "x/").prefix, "x/");
+    }
+
+    #[test]
+    fn windowed_pages_carry_only_the_listing() {
+        let window = WindowRef {
+            listing_id: 4,
+            loaded: 60_000,
+        };
+        let json = serde_json::to_value(FolderPage::windowed(window, Some(9))).unwrap();
+        assert_eq!(json["window"]["listingId"], 4);
+        assert_eq!(json["window"]["loaded"], 60_000);
+        assert_eq!(json["objects"].as_array().map(Vec::len), Some(0));
+        assert_eq!(json["cachedMs"], 9);
     }
 }

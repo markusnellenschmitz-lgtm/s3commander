@@ -66,7 +66,7 @@ export class TableController {
     if (key === undefined) return;
     const anchor = this.#anchorIndex();
     if (mods.shift && anchor >= 0) {
-      this.#selection().selectRange(this.#source(), anchor, index, mods.ctrl);
+      this.#selectRange(anchor, index, mods.ctrl);
       this.cursorKey = key;
     } else if (mods.ctrl) {
       this.toggle(index);
@@ -146,10 +146,22 @@ export class TableController {
       this.anchorKey = key;
     } else if (mode === 'extend' || mode === 'extendAdd') {
       const anchor = this.#anchorIndex();
-      this.#selection().selectRange(this.#source(), anchor >= 0 ? anchor : index, index, mode === 'extendAdd');
+      this.#selectRange(anchor >= 0 ? anchor : index, index, mode === 'extendAdd');
       if (anchor < 0) this.anchorKey = key;
     }
     this.cursorKey = key;
+  }
+
+  /**
+   * Bereichsauswahl. Quellen, die nur Fenster geladen haben, laden den Bereich erst vollständig,
+   * damit keine Zeile dazwischen fehlt; ein Bereich über alles braucht keine Schlüssel.
+   */
+  #selectRange(a: number, b: number, additive: boolean): void {
+    const source = this.#source();
+    const select = () => this.#selection().selectRange(source, a, b, additive);
+    const coversAll = !additive && Math.min(a, b) === 0 && Math.max(a, b) >= source.length - 1;
+    if (!source.ensureLoaded || coversAll) select();
+    else void source.ensureLoaded(Math.min(a, b), Math.max(a, b)).then(select);
   }
 
   #setCursorAndAnchor(key: string): void {

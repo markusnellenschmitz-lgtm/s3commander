@@ -87,10 +87,10 @@ describe('Kontextmenü', () => {
     expect(browser.selectedEntries.map((e) => e.key)).toEqual([daily().key]);
   });
 
-  it('sperrt Umbenennen bei Mehrfachauswahl und zeigt Kürzel und Gefahr an', () => {
+  it('sperrt Umbenennen bei Mehrfachauswahl und zeigt Kürzel und Gefahr an', async () => {
     browser.selection.only(file().key);
     browser.selection.set(daily().key, true);
-    clipboard.store('copy', browser.selectedObjects!);
+    clipboard.store('copy', (await browser.resolveSelection())!);
     actions.openAt(5, 5);
     const entries = actions.menu.state!.entries.filter(isMenuItem);
     expect(summary(actions.menu.state!.entries)).not.toContain('open');
@@ -153,7 +153,7 @@ describe('Kontextmenü', () => {
 });
 
 describe('Aktionen', () => {
-  it('reicht die Auswahl an die zuständigen View-Models weiter', () => {
+  it('reicht die Auswahl an die zuständigen View-Models weiter', async () => {
     browser.selection.only(file().key);
     const download = vi.spyOn(transfers, 'download').mockResolvedValue();
     const remove = vi.spyOn(deletion, 'open').mockResolvedValue();
@@ -161,24 +161,27 @@ describe('Aktionen', () => {
     actions.menu.run('download');
     actions.menu.run('delete');
     actions.menu.run('rename');
-    const selection = browser.selectedObjects;
+    await settle();
+    const selection = await browser.resolveSelection();
     expect(download).toHaveBeenCalledWith(selection);
     expect(remove).toHaveBeenCalledWith(selection);
     expect(rename).toHaveBeenCalledWith(selection);
   });
 
-  it('kopiert, schneidet aus und fügt in den offenen Ordner ein', () => {
+  it('kopiert, schneidet aus und fügt in den offenen Ordner ein', async () => {
     const copy = vi.spyOn(transfers, 'copy').mockResolvedValue();
     browser.selection.only(file().key);
     actions.menu.run('copy');
+    await settle();
     expect(clipboard.content?.mode).toBe('copy');
     actions.menu.run('cut');
+    await settle();
     expect(clipboard.content?.mode).toBe('cut');
     actions.menu.run('paste');
     expect(copy).toHaveBeenCalledWith(expect.anything(), browser.uploadTarget, true);
   });
 
-  it('öffnet Ordner, legt Ordner an, lädt hoch und kopiert Pfade', () => {
+  it('öffnet Ordner, legt Ordner an, lädt hoch und kopiert Pfade', async () => {
     const create = vi.spyOn(naming, 'openCreateFolder');
     const upload = vi.spyOn(transfers, 'upload').mockResolvedValue();
     const open = vi.spyOn(browser, 'open');
@@ -186,9 +189,11 @@ describe('Aktionen', () => {
     actions.menu.run('open');
     expect(open).not.toHaveBeenCalled();
     actions.menu.run('copyPath');
+    await settle();
     expect(writeText).toHaveBeenCalledWith(`s3://prod-backups-eu/${file().key}`);
     browser.selection.set(daily().key, true);
     actions.menu.run('copyPath');
+    await settle();
     expect(writeText).toHaveBeenLastCalledWith(
       `s3://prod-backups-eu/${daily().key}\ns3://prod-backups-eu/${file().key}`,
     );
@@ -202,10 +207,11 @@ describe('Aktionen', () => {
     expect(open).toHaveBeenCalledWith(folder);
   });
 
-  it('tut ohne Auswahl oder ohne offenen Ordner nichts', () => {
+  it('tut ohne Auswahl oder ohne offenen Ordner nichts', async () => {
     const download = vi.spyOn(transfers, 'download');
     actions.download();
     actions.copyPath();
+    await settle();
     expect(download).not.toHaveBeenCalled();
     expect(writeText).not.toHaveBeenCalled();
     const idle = new BrowserViewModel({ backend: createFakeBackend() });
@@ -223,6 +229,8 @@ describe('Aktionen', () => {
     detached.newFolder();
     detached.upload();
     detached.copyPath();
+    await settle();
     expect(create).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
   });
 });

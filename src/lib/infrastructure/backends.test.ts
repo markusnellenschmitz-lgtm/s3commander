@@ -88,10 +88,31 @@ describe('createTauriBackend', () => {
       fresh: false,
       onPage: channel,
     });
-    channel.onmessage({ objects: [], prefixes: ['x/y/'], nextToken: null, cachedMs: null });
+    channel.onmessage({ objects: [], prefixes: ['x/y/'], nextToken: null, cachedMs: null, window: null });
     expect(pages).toHaveLength(1);
     await backend.listFolder('p', 'b', 'x/', 'l2', () => {}, { fresh: true });
     expect(call.mock.calls[1][1]).toMatchObject({ listingId: 'l2', fresh: true });
+  });
+
+  it('ruft die Befehle für Fenster aus großen Ordnern auf', async () => {
+    const call = vi.fn().mockResolvedValue(undefined);
+    const backend = createTauriBackend(call as never);
+    const sort = { column: 'size', dir: -1 } as const;
+    const filter = { text: 'a', kind: null, minSize: 1, maxSize: null, modifiedFrom: null, modifiedTo: null };
+    await backend.releaseListing(4);
+    await backend.openWindow(4, filter, sort);
+    await backend.openWindow(4, null, sort);
+    await backend.windowEntries(7, 500, 500);
+    await backend.windowSelection(7, ['x/a']);
+    await backend.closeWindow(7);
+    expect(call.mock.calls).toEqual([
+      ['release_listing', { listingId: 4 }],
+      ['open_window', { listingId: 4, filter, sort }],
+      ['open_window', { listingId: 4, filter: null, sort }],
+      ['window_entries', { viewId: 7, offset: 500, limit: 500 }],
+      ['window_selection', { viewId: 7, excluded: ['x/a'] }],
+      ['close_window', { viewId: 7 }],
+    ]);
   });
 
   it('ruft die Löschbefehle auf und reicht den Fortschritt weiter', async () => {
@@ -259,6 +280,29 @@ describe('createFakeBackend', () => {
     expect(await backend.cancelListing('l')).toBe(true);
     await expect(listing).rejects.toMatchObject({ kind: 'cancelled' });
     expect(await backend.cancelListing('l')).toBe(false);
+  });
+
+  it('verweist bei sehr großen Ordnern auf ein Listing für Fenster', async () => {
+    const backend = createFakeBackend({ pageDelayMs: 0, logObjects: 2500, windowThreshold: 1500 });
+    const pages: FolderPage[] = [];
+    await backend.listFolder('aws-prod', 'prod-logs-eu', 'cloudfront/', 'l', (p) => pages.push(p));
+    expect(pages.map((p) => p.window?.loaded ?? null)).toEqual([null, 2000, 2500]);
+    expect(pages[1].objects).toHaveLength(0);
+    const listingId = pages[2].window?.listingId ?? -1;
+    const view = await backend.openWindow(listingId, null, { column: 'name', dir: -1 });
+    expect(view.stats).toMatchObject({ count: 2500, total: 2500, folders: 0 });
+    const [last] = await backend.windowEntries(view.viewId, 0, 1);
+    expect(last.key.startsWith('cloudfront/')).toBe(true);
+    expect(await backend.windowSelection(view.viewId, [last.key])).toHaveLength(2499);
+    await backend.closeWindow(view.viewId);
+    await expect(backend.windowEntries(view.viewId, 0, 1)).rejects.toMatchObject({ kind: 'cache' });
+
+    const cached: FolderPage[] = [];
+    await backend.listFolder('aws-prod', 'prod-logs-eu', 'cloudfront/', 'l2', (p) => cached.push(p));
+    expect(cached[0]).toMatchObject({ cachedMs: expect.any(Number), window: { loaded: 2500 } });
+    await backend.releaseListing(cached[0].window?.listingId ?? -1);
+    const released = await backend.openWindow(cached[0].window?.listingId ?? -1, null, { column: 'name', dir: 1 });
+    expect(released.stats.count).toBe(0);
   });
 
   it('nutzt Standardwerte für Verzögerung und Datenmenge', async () => {

@@ -1,7 +1,7 @@
 // Zwischenablage für Objekte: Strg+C merkt zum Kopieren, Strg+X zum Verschieben,
 // Strg+V fügt in den offenen Ordner ein. Nach dem Verschieben ist die Ablage leer, wie im Explorer.
 
-import type { FolderLocation, ObjectSelection } from '../../core/backend';
+import type { FolderLocation, ObjectSelection, SelectionRequest } from '../../core/backend';
 import { countText } from '../../core/format';
 
 export type ClipboardMode = 'copy' | 'cut';
@@ -13,8 +13,7 @@ export interface ClipboardContent {
 
 /** Was die Kürzel gerade betreffen würden. */
 export interface ClipboardContext {
-  /** Erst beim Kürzel ausgewertet, weil die Auswahl sehr groß sein kann. */
-  selection: () => ObjectSelection | null;
+  selection: SelectionRequest;
   target: FolderLocation | null;
 }
 
@@ -41,9 +40,10 @@ export class ClipboardViewModel {
     if (lower === 'v') return this.pasteInto(context.target);
     const mode = MODE_BY_KEY[lower];
     if (!mode) return false;
-    const selection = context.selection();
-    if (!selection) return false;
-    this.store(mode, selection);
+    if (context.selection.count === 0) return false;
+    void context.selection.resolve().then((selection) => {
+      if (selection) this.store(mode, selection);
+    });
     return true;
   }
 

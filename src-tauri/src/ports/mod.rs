@@ -5,7 +5,8 @@ use crate::domain::credentials::Credentials;
 use crate::domain::deletion::DeleteFailure;
 use crate::domain::details::{MetadataEntry, ObjectAcl, ObjectHead, ObjectTag, ObjectVersion};
 use crate::domain::error::{CacheError, CredentialError, RepositoryError, StoreError};
-use crate::domain::listing_cache::{CacheStats, FolderKey};
+use crate::domain::listing_cache::{CacheStats, FolderKey, StoredListing};
+use crate::domain::listing_window::{ListingId, ViewId, ViewInfo, WindowEntry, WindowFilter, WindowSort};
 use crate::domain::local_dir::LocalEntry;
 use crate::domain::object::{BucketInfo, ListPage, ListRequest};
 use crate::domain::profile::ConnectionProfile;
@@ -335,8 +336,8 @@ pub trait LocalDirectories: Send + Sync {
     fn list(&self, dir: &Path) -> Result<Vec<LocalEntry>, StoreError>;
 }
 
-/// Kennung eines begonnenen Schreibvorgangs im Listing-Cache.
-pub type CacheWrite = i64;
+/// Kennung eines begonnenen Schreibvorgangs im Listing-Cache; zugleich die Kennung des Listings.
+pub type CacheWrite = ListingId;
 
 /// Gespeicherte Ordner-Listings. Ein neues Listing wird seitenweise geschrieben und ersetzt das
 /// alte erst beim Abschluss; abgebrochene Listings hinterlassen nichts.
@@ -347,6 +348,12 @@ pub trait ListingCache: Send + Sync {
     /// # Errors
     /// `Storage`, wenn die Cache-Datei nicht gelesen werden kann.
     fn load(&self, folder: &FolderKey, on_page: &mut dyn FnMut(i64, ListPage)) -> Result<bool, CacheError>;
+
+    /// Das vollständige Listing des Ordners, ohne seine Einträge zu lesen.
+    ///
+    /// # Errors
+    /// `Storage`, wenn die Cache-Datei nicht gelesen werden kann.
+    fn find(&self, folder: &FolderKey) -> Result<Option<StoredListing>, CacheError>;
 
     /// # Errors
     /// `Storage` bei Schreibfehlern.
@@ -366,6 +373,13 @@ pub trait ListingCache: Send + Sync {
     /// `Storage` bei Schreibfehlern.
     fn discard(&self, write: CacheWrite) -> Result<(), CacheError>;
 
+    /// Gibt ein unvollständiges Listing frei, das nur für Fenster aufbewahrt wurde; vollständige
+    /// Listings bleiben als Cache erhalten.
+    ///
+    /// # Errors
+    /// `Storage` bei Schreibfehlern.
+    fn release(&self, listing: ListingId) -> Result<(), CacheError>;
+
     /// Entfernt alle Listings einer Verbindung.
     ///
     /// # Errors
@@ -379,6 +393,31 @@ pub trait ListingCache: Send + Sync {
     /// # Errors
     /// `Storage`, wenn die Cache-Datei nicht gelesen werden kann.
     fn stats(&self) -> Result<CacheStats, CacheError>;
+}
+
+/// Sortierte und gefilterte Sichten auf ein gespeichertes Listing, aus denen die Oberfläche
+/// sehr große Ordner fensterweise lädt.
+pub trait ListingWindows: Send + Sync {
+    /// Legt eine Sicht in der gewünschten Reihenfolge an und zählt ihre Treffer.
+    ///
+    /// # Errors
+    /// `Storage`, wenn die Cache-Datei nicht gelesen werden kann.
+    fn open_view(&self, listing: ListingId, filter: &WindowFilter, sort: WindowSort) -> Result<ViewInfo, CacheError>;
+
+    /// Einträge ab Position `offset` (0 = erster Treffer).
+    ///
+    /// # Errors
+    /// `Storage` bei Lesefehlern oder einer unbekannten Sicht.
+    fn view_entries(&self, view: ViewId, offset: u64, limit: u64) -> Result<Vec<WindowEntry>, CacheError>;
+
+    /// Alle Treffer außer `excluded`, in Anzeigereihenfolge (Auswahl „alle außer …“).
+    ///
+    /// # Errors
+    /// `Storage` bei Lesefehlern oder einer unbekannten Sicht.
+    fn view_entries_except(&self, view: ViewId, excluded: &[String]) -> Result<Vec<WindowEntry>, CacheError>;
+
+    /// Verwirft eine Sicht; unbekannte Sichten werden ignoriert.
+    fn close_view(&self, view: ViewId);
 }
 
 /// Meldet den Stand aller Transfers an die Oberfläche.
@@ -425,6 +464,10 @@ impl<T: ListingCache + ?Sized> ListingCache for Arc<T> {
         (**self).load(folder, on_page)
     }
 
+    fn find(&self, folder: &FolderKey) -> Result<Option<StoredListing>, CacheError> {
+        (**self).find(folder)
+    }
+
     fn begin(&self, folder: &FolderKey) -> Result<CacheWrite, CacheError> {
         (**self).begin(folder)
     }
@@ -441,6 +484,10 @@ impl<T: ListingCache + ?Sized> ListingCache for Arc<T> {
         (**self).discard(write)
     }
 
+    fn release(&self, listing: ListingId) -> Result<(), CacheError> {
+        (**self).release(listing)
+    }
+
     fn forget_profile(&self, profile_id: &str) -> Result<(), CacheError> {
         (**self).forget_profile(profile_id)
     }
@@ -451,6 +498,24 @@ impl<T: ListingCache + ?Sized> ListingCache for Arc<T> {
 
     fn stats(&self) -> Result<CacheStats, CacheError> {
         (**self).stats()
+    }
+}
+
+impl<T: ListingWindows + ?Sized> ListingWindows for Arc<T> {
+    fn open_view(&self, listing: ListingId, filter: &WindowFilter, sort: WindowSort) -> Result<ViewInfo, CacheError> {
+        (**self).open_view(listing, filter, sort)
+    }
+
+    fn view_entries(&self, view: ViewId, offset: u64, limit: u64) -> Result<Vec<WindowEntry>, CacheError> {
+        (**self).view_entries(view, offset, limit)
+    }
+
+    fn view_entries_except(&self, view: ViewId, excluded: &[String]) -> Result<Vec<WindowEntry>, CacheError> {
+        (**self).view_entries_except(view, excluded)
+    }
+
+    fn close_view(&self, view: ViewId) {
+        (**self).close_view(view);
     }
 }
 

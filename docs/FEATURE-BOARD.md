@@ -13,9 +13,7 @@ _Nichts._
 
 ## Geplant
 
-| Feature                                    | Beschreibung                                                                                                                                                                                                  | Abhängigkeit    |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| **Fensterweises Laden sehr großer Ordner** | Ab einigen Hunderttausend Objekten nur sichtbare Fenster aus dem SQLite-Cache in die Tabelle holen statt alle Einträge im Speicher der Oberfläche. Braucht Sortierung, Filter und invertierte Auswahl in SQL. | Listing-Cache ✓ |
+_Nichts._
 
 ## Ideen
 
@@ -37,6 +35,18 @@ _Nichts._
 - Vorschau für Bilder, Text und PDF.
 
 ## Erledigt
+
+- Fensterweises Laden sehr großer Ordner: Ab 50.000 Einträgen schickt das Backend keine Einträge mehr an
+  die Oberfläche, sondern nur den Verweis auf das Listing im SQLite-Cache (bei ausgeschaltetem Cache wird es
+  dafür trotzdem geschrieben, aber nie als Cache gültig und nach dem Verlassen des Ordners verworfen). Die
+  Tabelle lädt Seiten zu 500 Zeilen um den sichtbaren Bereich und vergisst länger nicht gezeigte (höchstens
+  25.000 Zeilen im Speicher). Sortieren und Filtern legen eine sortierte Sicht als temporäre Tabelle an;
+  dafür speichert der Cache je Eintrag einen natürlichen Sortierschlüssel (Schema-Version 2, ältere Cache-Dateien
+  werden einmal geleert). Gemessen im Debug-Build: Sicht über 500.000 Einträge 1–3 s, jedes Fenster rund 1 ms.
+  „Alle auswählen“ bleibt eine Auswahl „alle außer …“; Herunterladen, Kopieren, Löschen und „Pfade kopieren“
+  holen die Einträge dafür beim Backend. Bereichsauswahl mit Umschalt lädt fehlende Zeilen vorher. Läuft das
+  Listing noch, wird die Sicht alle 2 s aufgefrischt. In der Browser-Vorschau gilt das ab 20.000 Einträgen
+  (Ordner `cloudfront/` in `prod-logs-eu`).
 
 - Releases über GitHub Actions: Ein Tag `vX.Y.Z` prüft Tag gegen App-Version, lässt die CI auf Windows und
   Ubuntu laufen und legt einen Release-Entwurf mit NSIS-Installer, portabler EXE, `.deb` und AppImage an.

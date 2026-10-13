@@ -8,6 +8,7 @@ import type {
   BucketInfo,
   ConnectionProfile,
   FolderPage,
+  ListPage,
   ObjectEntryDto,
   ProviderPreset,
 } from '../core/backend';
@@ -22,9 +23,15 @@ import { DEFAULT_TRANSFER_PREFERENCES, transferErrors } from '../features/settin
 import { FakeListingCache } from './fakeListingCache';
 import { FakeLocalFiles } from './fakeLocalFiles';
 import { FakeSync } from './fakeSync';
+import { FakeWindows } from './fakeWindows';
 
 export const FAKE_PAGE_SIZE = 1000;
 export const FAKE_LOG_OBJECTS = 50_000;
+/**
+ * Ab so vielen Einträgen lädt die Oberfläche Fenster (im Rust-Backend 50.000). Niedriger, damit der
+ * Ordner mit den Logdateien in der Browser-Vorschau das fensterweise Laden zeigt.
+ */
+export const FAKE_WINDOW_THRESHOLD = 20_000;
 
 export const FAKE_PRESETS: ProviderPreset[] = [
   {
@@ -128,6 +135,8 @@ export interface FakeBackendOptions {
   transfers?: Omit<FakeTransferOptions, 'onFinished'>;
   /** Vorgegaukeltes Betriebssystem; ohne Angabe Windows. */
   platform?: Platform;
+  /** Ab so vielen Einträgen gibt es Fenster statt Seiten (Standard `FAKE_WINDOW_THRESHOLD`). */
+  windowThreshold?: number;
 }
 
 /** Beispiel für den Hinweis auf erhaltene ältere Versionen im Löschdialog. */
@@ -137,6 +146,8 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 
 export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort {
   const pageDelayMs = options.pageDelayMs ?? 30;
+  const windowThreshold = options.windowThreshold ?? FAKE_WINDOW_THRESHOLD;
+  const windows = new FakeWindows();
   const profiles = FAKE_PROFILES.map((p) => ({ ...p }));
   const failingProfiles = new Set(['b2-archiv']);
   const bucketSources = new Map<string, () => ObjectEntryDto[]>([
@@ -210,10 +221,28 @@ export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort
     return key;
   }
 
-  /** Wie das Rust-Backend: gespeicherte Seiten vor den frischen, mit dem Zeitpunkt des Listings. */
+  const entryCount = (pages: readonly ListPage[]) =>
+    pages.reduce((sum, page) => sum + page.objects.length + page.prefixes.length, 0);
+
+  /** Seite ohne Einträge, die nur auf das Listing für die Fenster verweist. */
+  const windowPage = (listingId: number, loaded: number, cachedMs: number | null): FolderPage => ({
+    objects: [],
+    prefixes: [],
+    nextToken: null,
+    cachedMs,
+    window: { listingId, loaded },
+  });
+
+  /** Wie das Rust-Backend: gespeicherte Seiten vor den frischen, bei sehr großen Ordnern nur der Verweis. */
   function sendCachedPages(profileId: string, bucket: string, prefix: string, onPage: (page: FolderPage) => void) {
     const cached = listingCache.load(profileId, bucket, prefix);
-    for (const page of cached?.pages ?? []) onPage({ ...page, cachedMs: cached?.fetchedMs ?? null });
+    if (!cached) return;
+    const count = entryCount(cached.pages);
+    if (count > windowThreshold) {
+      onPage(windowPage(windows.createListing(prefix, cached.pages), count, cached.fetchedMs));
+      return;
+    }
+    for (const page of cached.pages) onPage({ ...page, cachedMs: cached.fetchedMs, window: null });
   }
 
   function ensureProfile(id: string): ConnectionProfile {
@@ -261,12 +290,21 @@ export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort
       const objects = objectsOf(bucket);
       const pages = paginate(listFolder(objects, prefix), FAKE_PAGE_SIZE);
       const summary = { pages: 0, objects: 0, prefixes: 0 };
+      let windowListing: number | null = null;
       running.add(listingId);
       try {
-        for (const page of pages) {
+        for (const [index, page] of pages.entries()) {
           if (pageDelayMs > 0) await wait(pageDelayMs);
           if (cancelled.delete(listingId)) throw { kind: CANCELLED_KIND, message: 'Vorgang abgebrochen' };
-          onPage({ ...page, cachedMs: null });
+          const delivered = entryCount(pages.slice(0, index + 1));
+          if (windowListing !== null) windows.append(windowListing, page);
+          else if (delivered > windowThreshold)
+            windowListing = windows.createListing(prefix, pages.slice(0, index + 1));
+          onPage(
+            windowListing === null
+              ? { ...page, cachedMs: null, window: null }
+              : windowPage(windowListing, delivered, null),
+          );
           summary.pages++;
           summary.objects += page.objects.length;
           summary.prefixes += page.prefixes.length;
@@ -277,6 +315,11 @@ export function createFakeBackend(options: FakeBackendOptions = {}): BackendPort
         running.delete(listingId);
       }
     },
+    releaseListing: async (listingId) => windows.release(listingId),
+    openWindow: (listingId, filter, sort) => windows.openWindow(listingId, filter, sort),
+    windowEntries: (viewId, offset, limit) => windows.windowEntries(viewId, offset, limit),
+    windowSelection: (viewId, excluded) => windows.windowSelection(viewId, excluded),
+    closeWindow: (viewId) => windows.closeWindow(viewId),
     listLocalDir: async (path) => (path ? localFiles.list(path) : localFiles.roots()),
     async planSync(folder, localDir, direction) {
       ensureProfile(folder.profileId);

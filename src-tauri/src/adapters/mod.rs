@@ -12,6 +12,7 @@ pub mod settings_file;
 #[cfg(windows)]
 pub mod share_sheet;
 pub mod sqlite_cache;
+pub mod sqlite_windows;
 pub mod tauri_runtime;
 pub mod unsupported_share_sheet;
 

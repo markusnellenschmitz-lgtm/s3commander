@@ -1,22 +1,21 @@
 // View-Model von Suchfeld und Filtern (Typ, Größe, Datum) über der Objektliste.
-// Der Filter wirkt in der Datenquelle; Auswahl und Aktionen sehen nur die Treffer.
+// Der Filter wirkt in der Datenquelle der Ordneransicht; Auswahl und Aktionen sehen nur die Treffer.
 
 import type { MenuEntry } from '../../core/menu';
 import type { SpriteIconName } from '../../ui/icons/sprite';
-import type { Selection } from '../../core/table/selection.svelte';
 import {
   DATE_OPTIONS,
   KIND_OPTIONS,
   NO_FILTER,
   SIZE_OPTIONS,
-  filterPredicate,
+  filterQuery,
   isActive,
   type DateFilter,
   type KindFilter,
   type ObjectFilter,
   type SizeFilter,
 } from './objectFilter';
-import type { ObjectSource } from './objectSource';
+import type { FilterTarget } from './objectSource';
 
 export type FilterGroup = 'kind' | 'size' | 'date';
 
@@ -43,8 +42,7 @@ export interface FilterMenuState {
 }
 
 export interface ObjectFilterDeps {
-  source: ObjectSource;
-  selection: Selection;
+  target: FilterTarget;
   now?: () => number;
 }
 
@@ -52,13 +50,11 @@ export class ObjectFilterViewModel {
   filter = $state<ObjectFilter>({ ...NO_FILTER });
   menu = $state<FilterMenuState | null>(null);
 
-  readonly #source: ObjectSource;
-  readonly #selection: Selection;
+  readonly #target: FilterTarget;
   readonly #now: () => number;
 
   constructor(deps: ObjectFilterDeps) {
-    this.#source = deps.source;
-    this.#selection = deps.selection;
+    this.#target = deps.target;
     this.#now = deps.now ?? Date.now;
   }
 
@@ -118,7 +114,6 @@ export class ObjectFilterViewModel {
 
   #update(change: Partial<ObjectFilter>): void {
     this.filter = { ...this.filter, ...change };
-    this.#source.setFilter(filterPredicate(this.filter, this.#now()));
-    this.#selection.prune(this.#source);
+    this.#target.applyFilter(filterQuery(this.filter, this.#now()));
   }
 }

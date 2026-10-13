@@ -9,7 +9,7 @@ import type {
   RenameProgress,
   SelectedItem,
 } from '../../core/backend';
-import { toBackendError } from '../../core/backend';
+import { toBackendError, type SelectionRequest } from '../../core/backend';
 import { formatCount } from '../../core/format';
 import { baseName, nameError, parentOfKey } from '../../core/objectName';
 
@@ -61,11 +61,11 @@ export class NameDialogViewModel {
   }
 
   /** F2 öffnet „Umbenennen“ für die Auswahl; liefert true, wenn das Kürzel behandelt wurde. */
-  handleShortcut(key: string, selection: () => ObjectSelection | null): boolean {
-    if (key !== RENAME_KEY || this.isOpen) return false;
-    const current = selection();
-    if (current?.items.length !== 1) return false;
-    this.openRename(current);
+  handleShortcut(key: string, request: SelectionRequest): boolean {
+    if (key !== RENAME_KEY || this.isOpen || request.count !== 1) return false;
+    void request.resolve().then((selection) => {
+      if (selection) this.openRename(selection);
+    });
     return true;
   }
 

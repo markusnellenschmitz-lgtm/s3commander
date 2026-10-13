@@ -7,8 +7,10 @@ import type {
   BucketInfo,
   FolderPage,
   ConnectionProfile,
+  EntryQuery,
   ObjectSelection,
   FolderLocation,
+  SelectionRequest,
 } from '../../core/backend';
 import { CANCELLED_KIND, toBackendError } from '../../core/backend';
 import { Selection } from '../../core/table/selection.svelte';
@@ -16,11 +18,11 @@ import type { SortState } from '../../core/table/types';
 import type { TreeNode } from '../../core/tree';
 import { treeKeyAction } from '../../core/tree';
 import { formatCount, formatDate } from '../../core/format';
-import { ArraySource } from '../objects/arraySource.svelte';
 import { toSelectedItem, type EntryColumn, type S3Entry } from '../objects/entry';
-import { selectedBytes, selectedEntries } from '../objects/objectSource';
+import { selectedBytes, selectedEntries, type FilterTarget, type ObjectSource } from '../objects/objectSource';
 import { objectCountText, selectionText, sortText } from '../objects/statusText';
-import { crumbs, pageEntries, parentPrefix, type Crumb } from './entryMapping';
+import { crumbs, parentPrefix, type Crumb } from './entryMapping';
+import { FolderContent } from './folderContent.svelte';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 export type ListingState = 'idle' | 'loading' | 'done' | 'cancelled' | 'error';
@@ -55,8 +57,6 @@ export interface BrowserDeps {
 }
 
 export const DEFAULT_SORT: SortState = { column: 'name', dir: 1 };
-/** Seiten werden höchstens so oft in die Tabelle übernommen, damit sie nicht ständig neu sortiert. */
-export const FLUSH_INTERVAL_MS = 150;
 
 /** Was ein Knoten des Verbindungsbaums darstellt: eine Verbindung oder einen Bucket darin. */
 export interface TreeTarget {
@@ -67,40 +67,57 @@ export interface TreeTarget {
 export const connectionNodeId = (profileId: string) => `c:${profileId}`;
 export const bucketNodeId = (profileId: string, bucket: string) => `b:${profileId}/${bucket}`;
 
-export class BrowserViewModel {
+export class BrowserViewModel implements FilterTarget {
   connections = $state<ConnectionState[]>([]);
   profilesError = $state<BackendError | null>(null);
   location = $state<Location | null>(null);
   listingState = $state<ListingState>('idle');
   listingError = $state<BackendError | null>(null);
-  loadedCount = $state(0);
-  /** Zeitpunkt des gespeicherten Listings, solange die Tabelle den Stand aus dem Cache zeigt. */
-  cachedAtMs = $state<number | null>(null);
   compact = $state(false);
   /** Ausgeblendete Spalten der Objekttabelle (Einstellungen › Darstellung). */
   hiddenColumns = $state<EntryColumn[]>([]);
   sort = $state<SortState>(DEFAULT_SORT);
   activeTreeId = $state<string | null>(null);
-  readonly source = new ArraySource([], DEFAULT_SORT);
   readonly selection = new Selection();
+  readonly #content: FolderContent;
   #refreshQueued = false;
 
   #backHistory = $state<Location[]>([]);
   #forwardHistory = $state<Location[]>([]);
   #listingId: string | null = null;
   readonly #forgetListeners = new Set<(profileId: string) => void>();
-  #pending: S3Entry[] = [];
-  /** Frische Einträge, während die Tabelle noch den Stand aus dem Cache zeigt. */
-  #live: S3Entry[] = [];
-  #flushPlanned = false;
   readonly #backend: BackendPort;
   readonly #newId: () => string;
-  readonly #schedule: (run: () => void, delayMs: number) => void;
 
   constructor(deps: BrowserDeps) {
     this.#backend = deps.backend;
     this.#newId = deps.newId ?? (() => crypto.randomUUID());
-    this.#schedule = deps.schedule ?? ((run, delayMs) => setTimeout(run, delayMs));
+    this.#content = new FolderContent({
+      port: deps.backend,
+      selection: this.selection,
+      sort: DEFAULT_SORT,
+      schedule: deps.schedule ?? ((run, delayMs) => setTimeout(run, delayMs)),
+      onError: (error) => (this.listingError = toBackendError(error)),
+    });
+  }
+
+  /** Datenquelle der Objekttabelle: vollständige Liste oder Fenster aus einem sehr großen Ordner. */
+  get source(): ObjectSource {
+    return this.#content.source;
+  }
+
+  get loadedCount(): number {
+    return this.#content.loadedCount;
+  }
+
+  /** Zeitpunkt des gespeicherten Listings, solange die Tabelle den Stand aus dem Cache zeigt. */
+  get cachedAtMs(): number | null {
+    return this.#content.cachedAtMs;
+  }
+
+  /** Fortschrittsbalken: Listing läuft oder eine Sicht auf einen großen Ordner wird angelegt. */
+  get isBusy(): boolean {
+    return this.listingState === 'loading' || this.#content.isOpening;
   }
 
   // ---------- Verbindungen ----------
@@ -222,7 +239,12 @@ export class BrowserViewModel {
 
   changeSort(sort: SortState): void {
     this.sort = sort;
-    this.source.setSort(sort);
+    this.#content.setSort(sort);
+  }
+
+  /** Filter über der Objektliste; wirkt auf die jeweils gezeigte Quelle. */
+  applyFilter(query: EntryQuery | null): void {
+    this.#content.applyFilter(query);
   }
 
   get canGoBack(): boolean {
@@ -253,7 +275,7 @@ export class BrowserViewModel {
 
   get isEmptyFolder(): boolean {
     void this.source.version;
-    return this.listingState === 'done' && this.source.totalCount === 0;
+    return this.listingState === 'done' && !this.#content.isOpening && this.source.totalCount === 0;
   }
 
   /** Der Ordner hat Einträge, aber der Filter blendet alle aus. */
@@ -307,16 +329,29 @@ export class BrowserViewModel {
     return selectedBytes(this.selection, this.source);
   }
 
-  /** Gewählte und geladene Einträge in Anzeigereihenfolge. */
+  /**
+   * Gewählte und geladene Einträge in Anzeigereihenfolge, etwa für Eigenschaften und Umbenennen.
+   * In sehr großen Ordnern fehlen nicht geladene; Aktionen nutzen deshalb `resolveSelection`.
+   */
   get selectedEntries(): S3Entry[] {
     return this.hasSelection ? selectedEntries(this.selection, this.source) : [];
   }
 
-  /** Gewählte Einträge für Herunterladen und Löschen; null ohne offenen Ordner oder Auswahl. */
-  get selectedObjects(): ObjectSelection | null {
+  /** Alle gewählten Einträge, bei sehr großen Ordnern auch nicht geladene (fragt das Backend). */
+  async resolveSelectedEntries(): Promise<S3Entry[]> {
+    return this.hasSelection ? this.#content.resolveSelected() : [];
+  }
+
+  /** Gewählte Einträge für Herunterladen, Kopieren und Löschen; null ohne offenen Ordner oder Auswahl. */
+  async resolveSelection(): Promise<ObjectSelection | null> {
     const folder = this.uploadTarget;
-    const items = this.selectedEntries.map(toSelectedItem);
+    const items = (await this.resolveSelectedEntries()).map(toSelectedItem);
     return folder && items.length > 0 ? { folder, items } : null;
+  }
+
+  /** Auswahl für Tastenkürzel: Anzahl sofort, Einträge erst beim Ausführen. */
+  get selectionRequest(): SelectionRequest {
+    return { count: this.hasSelection ? this.selectedCount : 0, resolve: () => this.resolveSelection() };
   }
 
   /**
@@ -480,12 +515,10 @@ export class BrowserViewModel {
     this.cancelListing();
     this.#listingId = null;
     this.location = null;
-    this.source.replace([]);
+    this.#content.reset('');
     this.selection.clear();
-    this.loadedCount = 0;
     this.listingError = null;
     this.listingState = 'idle';
-    this.cachedAtMs = null;
   }
 
   #navigate(target: Location): void {
@@ -508,73 +541,32 @@ export class BrowserViewModel {
     this.cancelListing();
     const listingId = this.#newId();
     this.#listingId = listingId;
-    this.#pending = [];
-    this.#live = [];
-    this.source.replace([]);
+    this.#content.reset(target.prefix);
     this.selection.clear();
-    this.loadedCount = 0;
     this.listingError = null;
     this.listingState = 'loading';
-    this.cachedAtMs = null;
     const isCurrent = () => this.#listingId === listingId;
     const onPage = (page: FolderPage) => {
-      if (isCurrent()) this.#receive(page, pageEntries(page, target.prefix));
+      if (isCurrent()) this.#content.receive(page);
     };
     try {
       const { profileId, bucket, prefix } = target;
       await this.#backend.listFolder(profileId, bucket, prefix, listingId, onPage, { fresh });
       if (isCurrent()) {
-        this.#replaceCachedWithLive();
+        this.#content.finish();
         this.listingState = 'done';
       }
     } catch (error) {
       if (!isCurrent()) return;
+      this.#content.abort();
       const backendError = toBackendError(error);
       this.listingState = backendError.kind === CANCELLED_KIND ? 'cancelled' : 'error';
       this.listingError = backendError.kind === CANCELLED_KIND ? null : backendError;
     } finally {
       if (isCurrent()) {
-        this.#flush();
+        this.#content.flush();
         this.#listingId = null;
       }
     }
-  }
-
-  /** Cache-Seiten und frische Seiten ohne Cache gehen in die Tabelle, frische nach Cache-Seiten in den Puffer. */
-  #receive(page: FolderPage, entries: S3Entry[]): void {
-    if (page.cachedMs !== null) {
-      this.cachedAtMs = page.cachedMs;
-    } else if (this.cachedAtMs !== null) {
-      this.#live.push(...entries);
-      this.loadedCount += entries.length;
-      return;
-    } else {
-      this.loadedCount += entries.length;
-    }
-    this.#pending.push(...entries);
-    this.#planFlush();
-  }
-
-  /** Ersetzt den Stand aus dem Cache durch das fertige Listing; die Auswahl bleibt, soweit vorhanden. */
-  #replaceCachedWithLive(): void {
-    if (this.cachedAtMs === null) return;
-    this.#pending = [];
-    this.source.replace(this.#live);
-    this.selection.prune(this.source);
-    this.#live = [];
-    this.cachedAtMs = null;
-  }
-
-  #planFlush(): void {
-    if (this.#flushPlanned) return;
-    this.#flushPlanned = true;
-    this.#schedule(() => this.#flush(), FLUSH_INTERVAL_MS);
-  }
-
-  #flush(): void {
-    this.#flushPlanned = false;
-    const entries = this.#pending;
-    this.#pending = [];
-    this.source.append(entries);
   }
 }

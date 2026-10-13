@@ -118,7 +118,7 @@ function mainWindow(platform: Platform = 'windows') {
   const writeText = vi.fn().mockResolvedValue(undefined);
   const details = new DetailsViewModel({ backend, writeText, now: () => NOW });
   const share = new ShareDialogViewModel({ backend, writeText, now: () => NOW });
-  const filter = new ObjectFilterViewModel({ source: vm.source, selection: vm.selection, now: () => NOW });
+  const filter = new ObjectFilterViewModel({ target: vm, now: () => NOW });
   const settings = new SettingsViewModel({
     backend,
     theme: new ThemeViewModel(memoryStore(), { prefersDark: () => true, subscribe: () => () => {} }),
@@ -719,7 +719,7 @@ describe('Neuer Ordner und Umbenennen', () => {
     const fileRow = vm.source.get(5)!;
     vm.selection.only(fileRow.key);
     await fireEvent.keyDown(window, { key: 'F2' });
-    const dialog = screen.getByRole('dialog', { name: `„${fileRow.name}“ umbenennen` });
+    const dialog = await screen.findByRole('dialog', { name: `„${fileRow.name}“ umbenennen` });
     const input = within(dialog).getByRole<HTMLInputElement>('textbox', { name: /Name/ });
     await fireEvent.focus(input);
     expect(input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0)).toBe(
@@ -730,7 +730,7 @@ describe('Neuer Ordner und Umbenennen', () => {
 
     vm.selection.only(vm.source.get(0)!.key);
     await fireEvent.keyDown(window, { key: 'F2' });
-    const folderInput = screen.getByRole<HTMLInputElement>('textbox', { name: /Name/ });
+    const folderInput = await screen.findByRole<HTMLInputElement>('textbox', { name: /Name/ });
     await fireEvent.focus(folderInput);
     expect(folderInput.selectionEnd).toBe('daily'.length);
   });
@@ -1083,7 +1083,7 @@ describe('Kontextmenü im Hauptfenster', () => {
     expect(vm.selectedEntries.map((e) => e.name)).toEqual(['daily/']);
     await fireEvent.click(within(menu).getByRole('menuitem', { name: /Umbenennen/ }));
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: '„daily“ umbenennen' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: '„daily“ umbenennen' })).toBeInTheDocument();
   });
 
   it('bietet auf freier Fläche Ordner-Aktionen und öffnet per Umschalt+F10', async () => {
@@ -1128,7 +1128,7 @@ describe('Kopieren und Verschieben im Hauptfenster', () => {
     await settle();
     await fireEvent.click(screen.getByText('daily/'));
     await fireEvent.keyDown(window, { key: 'x', ctrlKey: true });
-    const hint = screen.getByRole('button', { name: /1 Eintrag zum Verschieben gemerkt/ });
+    const hint = await screen.findByRole('button', { name: /1 Eintrag zum Verschieben gemerkt/ });
     vm.openPrefix('');
     await settle();
     await fireEvent.keyDown(window, { key: 'v', ctrlKey: true });
@@ -1146,7 +1146,7 @@ describe('Kopieren und Verschieben im Hauptfenster', () => {
     await settle();
     await fireEvent.click(screen.getByText('daily/'));
     await fireEvent.keyDown(window, { key: 'c', ctrlKey: true });
-    await fireEvent.click(screen.getByRole('button', { name: /zum Kopieren gemerkt/ }));
+    await fireEvent.click(await screen.findByRole('button', { name: /zum Kopieren gemerkt/ }));
     expect(clipboard.content).toBeNull();
   });
 
@@ -1610,7 +1610,8 @@ describe('Zwei-Panel-Ansicht', () => {
     expect(upload).toHaveBeenCalledWith(vm.uploadTarget, ['D:\\Backups\\db-prod\\checksums.sha256']);
     await fireEvent.click(screen.getByText('daily/'));
     await fireEvent.click(toLocal);
-    expect(download).toHaveBeenCalledWith(vm.selectedObjects, 'D:\\Backups\\db-prod');
+    await settle();
+    expect(download).toHaveBeenCalledWith(await vm.resolveSelection(), 'D:\\Backups\\db-prod');
   });
 
   it('nutzt auf der lokalen Seite nur deren Kürzel', async () => {

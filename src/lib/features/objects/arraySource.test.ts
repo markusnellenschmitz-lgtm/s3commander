@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ArraySource } from './arraySource.svelte';
-import { selectedBytes, selectedEntries } from './objectSource';
+import { keepVisibleSelection, selectedBytes, selectedEntries, type ObjectSource } from './objectSource';
 import { Selection } from '../../core/table/selection.svelte';
 import { file, folder } from '../../../test/fakes';
 
@@ -79,5 +79,42 @@ describe('selectedEntries', () => {
     sel.selectAll();
     sel.set('p/b', false);
     expect(selectedEntries(sel, source).map((e) => e.name)).toEqual(['dir/', 'a', 'c']);
+  });
+});
+
+describe('Filter und Auswahl', () => {
+  const query = { text: '', kind: null, minSize: 150, maxSize: null, modifiedFrom: null, modifiedTo: null };
+
+  it('filtert mit einer Abfrage und zeigt ohne wieder alles', () => {
+    const s = new ArraySource(rows, { column: 'name', dir: 1 });
+    s.setFilter(query);
+    expect([0, 1].map((i) => s.get(i)?.name)).toEqual(['b', 'c']);
+    expect(s.length).toBe(2);
+    expect(s.totalCount).toBe(4);
+    expect(s.isFiltered).toBe(true);
+    s.setFilter(null);
+    expect(s.length).toBe(4);
+    expect(s.isComplete).toBe(true);
+  });
+
+  it('löst die Auswahl ohne Backend auf', async () => {
+    const s = new ArraySource(rows, { column: 'name', dir: 1 });
+    const sel = new Selection();
+    sel.selectAll();
+    sel.set('p/a', false);
+    expect((await s.resolveSelected(sel)).map((e) => e.name)).toEqual(['dir/', 'b', 'c']);
+  });
+
+  it('behält nach einem Filter nur sichtbare Treffer, ohne alle Einträge gar keine', () => {
+    const s = new ArraySource(rows, { column: 'name', dir: 1 });
+    const sel = new Selection();
+    sel.set('p/a', true);
+    sel.set('p/c', true);
+    s.setFilter(query);
+    keepVisibleSelection(sel, s);
+    expect([...sel.rawKeys]).toEqual(['p/c']);
+    const partial = { isComplete: false } as ObjectSource;
+    keepVisibleSelection(sel, partial);
+    expect(sel.count(10)).toBe(0);
   });
 });

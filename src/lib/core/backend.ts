@@ -2,6 +2,7 @@
 // Implementierungen: infrastructure/tauriBackend (echt), infrastructure/fakeBackend (Browser, Tests).
 
 import type { Platform } from './platform';
+import type { SortState } from './table/types';
 
 export type Provider =
   'aws' | 'minio' | 'backblaze-b2' | 'cloudflare-r2' | 'wasabi' | 'hetzner' | 'ceph' | 'garage' | 'custom';
@@ -72,9 +73,69 @@ export interface ListPage {
   nextToken: string | null;
 }
 
-/** Seite eines Ordner-Listings; `cachedMs` ist gesetzt, wenn sie aus dem Listing-Cache stammt. */
+/** Verweis auf ein Listing im Cache, aus dem die Oberfläche Fenster lädt; `loaded` zählt die bisher gelisteten Einträge. */
+export interface WindowRef {
+  listingId: number;
+  loaded: number;
+}
+
+/**
+ * Seite eines Ordner-Listings; `cachedMs` ist gesetzt, wenn sie aus dem Listing-Cache stammt.
+ * Bei sehr großen Ordnern bleibt sie leer, und `window` nennt das Listing für die Fenster.
+ */
 export interface FolderPage extends ListPage {
   cachedMs: number | null;
+  window: WindowRef | null;
+}
+
+/** Dateityp für Icons und den Typfilter. */
+export type FileKind = 'folder' | 'archive' | 'text' | 'lock' | 'file';
+
+/** Filter der Objektliste mit absoluten Grenzen; Größen- und Datumsfilter blenden Einträge ohne Wert aus. */
+export interface EntryQuery {
+  text: string;
+  kind: FileKind | null;
+  /** Mindestgröße (einschließlich) */
+  minSize: number | null;
+  /** Größe unter (ausschließlich) */
+  maxSize: number | null;
+  /** Geändert frühestens (einschließlich, ms seit Epoch) */
+  modifiedFrom: number | null;
+  /** Geändert spätestens (einschließlich, ms seit Epoch) */
+  modifiedTo: number | null;
+}
+
+/** Eintrag eines Fensters in Anzeigereihenfolge. */
+export interface WindowEntryDto {
+  key: string;
+  isPrefix: boolean;
+  size: number;
+  lastModifiedMs: number | null;
+  etag: string | null;
+  storageClass: string | null;
+}
+
+/** Umfang einer Sicht: Treffer, davon Ordner, Bytes der Treffer, alle Einträge des Listings. */
+export interface WindowStats {
+  count: number;
+  folders: number;
+  bytes: number;
+  total: number;
+}
+
+export interface ViewInfo {
+  viewId: number;
+  stats: WindowStats;
+}
+
+/** Fenster aus sehr großen Ordnern (Spiegel von `application/windows.rs`). */
+export interface WindowPort {
+  /** Sortierte und gefilterte Sicht auf ein Listing; null zeigt alle Einträge. */
+  openWindow(listingId: number, filter: EntryQuery | null, sort: SortState): Promise<ViewInfo>;
+  windowEntries(viewId: number, offset: number, limit: number): Promise<WindowEntryDto[]>;
+  /** Alle Treffer außer `excluded` (Auswahl „alle außer …“). */
+  windowSelection(viewId: number, excluded: string[]): Promise<WindowEntryDto[]>;
+  closeWindow(viewId: number): Promise<void>;
 }
 
 /** Eintrag eines lokalen Ordners (Zwei-Panel-Ansicht); bei Laufwerken Name „D:“, Pfad „D:\“. */
@@ -231,6 +292,20 @@ export interface ObjectSelection {
   items: SelectedItem[];
 }
 
+/**
+ * Auswahl für Aktionen und Kürzel: Die Anzahl ist sofort bekannt, die Einträge löst `resolve` erst
+ * bei Bedarf auf (in sehr großen Ordnern über das Backend).
+ */
+export interface SelectionRequest {
+  readonly count: number;
+  resolve(): Promise<ObjectSelection | null>;
+}
+
+/** Feste Auswahl, etwa ohne offenen Ordner (`null`) oder aus bereits bekannten Einträgen. */
+export function selectionOf(selection: ObjectSelection | null): SelectionRequest {
+  return { count: selection?.items.length ?? 0, resolve: async () => selection };
+}
+
 /** Was gelöscht würde; Grundlage des Bestätigungsdialogs („Ziel und Menge“). */
 export interface DeletePreview {
   /** Nur genau die Keys dieses Plans werden gelöscht. */
@@ -345,7 +420,7 @@ export interface FileDropPort {
   onFileDrop(listener: (event: FileDropEvent) => void): Promise<() => void>;
 }
 
-export interface BackendPort {
+export interface BackendPort extends WindowPort {
   /** Betriebssystem, auf dem das Backend läuft. */
   readonly platform: Platform;
   listPresets(): Promise<ProviderPreset[]>;
@@ -370,6 +445,8 @@ export interface BackendPort {
     options?: { fresh?: boolean },
   ): Promise<ListingSummary>;
   cancelListing(listingId: string): Promise<boolean>;
+  /** Das Listing für Fenster wird nicht mehr gezeigt; nur für Fenster aufbewahrte Listings verwirft das Backend. */
+  releaseListing(listingId: number): Promise<void>;
   cacheStats(): Promise<CacheStats>;
   clearListingCache(): Promise<void>;
   /** Laufwerke (ohne Pfad) oder Inhalt eines lokalen Ordners. */

@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeleteViewModel } from './deleteViewModel.svelte';
 import { createFakeBackend } from '../../infrastructure/fakeBackend';
 import { BACKUPS_PREFIX } from '../../infrastructure/fixtures/buckets';
-import type { BackendPort, DeleteOutcome, FolderLocation, ObjectSelection } from '../../core/backend';
+import {
+  selectionOf,
+  type BackendPort,
+  type DeleteOutcome,
+  type FolderLocation,
+  type ObjectSelection,
+} from '../../core/backend';
 
 const folder = { profileId: 'aws-prod', bucket: 'prod-backups-eu', prefix: BACKUPS_PREFIX };
 const selection: ObjectSelection = {
@@ -122,10 +128,11 @@ describe('DeleteViewModel', () => {
 
   it('öffnet mit Entf nur bei Auswahl und geschlossenem Dialog', async () => {
     const open = vi.spyOn(vm, 'open');
-    expect(vm.handleShortcut('Backspace', () => selection)).toBe(false);
-    expect(vm.handleShortcut('Delete', () => null)).toBe(false);
-    expect(vm.handleShortcut('Delete', () => selection)).toBe(true);
+    expect(vm.handleShortcut('Backspace', selectionOf(selection))).toBe(false);
+    expect(vm.handleShortcut('Delete', selectionOf(null))).toBe(false);
+    expect(vm.handleShortcut('Delete', selectionOf(selection))).toBe(true);
+    await Promise.resolve();
     expect(open).toHaveBeenCalledWith(selection);
-    expect(vm.handleShortcut('Delete', () => selection)).toBe(false);
+    expect(vm.handleShortcut('Delete', selectionOf(selection))).toBe(false);
   });
 });

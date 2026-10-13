@@ -53,7 +53,7 @@
   import type { TabsViewModel } from './tabsViewModel.svelte';
   import TabBar from './TabBar.svelte';
   import type { ConnectionProfile } from '../../core/backend';
-  import { errorDetail } from '../../core/backend';
+  import { errorDetail, selectionOf } from '../../core/backend';
 
   interface Props {
     vm: BrowserViewModel;
@@ -212,7 +212,7 @@
 
   /** Auf der lokalen Seite gelten nur ihre eigenen Kürzel und die allgemeinen der Anwendung. */
   function localShortcuts(e: KeyboardEvent): (() => boolean)[] {
-    const nothing = { uploadTarget: null, selectedObjects: () => null };
+    const nothing = { uploadTarget: null, selection: selectionOf(null) };
     return [
       () => settings.handleShortcut(e.key, e.ctrlKey),
       () => tabs.handleShortcut(e.key, e.ctrlKey, e.shiftKey),
@@ -225,13 +225,13 @@
   /** Kürzel der Anwendung in der Reihenfolge, in der sie gefragt werden; true heißt behandelt. */
   function shortcuts(e: KeyboardEvent, target: Element | null): (() => boolean)[] {
     if (target?.closest('[data-panel="local"]')) return localShortcuts(e);
-    const selection = () => vm.selectedObjects;
+    const selection = vm.selectionRequest;
     return [
       () => focusSearch(e),
       () => settings.handleShortcut(e.key, e.ctrlKey),
       () => tabs.handleShortcut(e.key, e.ctrlKey, e.shiftKey),
       () => (target?.closest('input') ? false : openMenuFromKeyboard(e, target)),
-      () => transfers.handleShortcut(e.key, e.ctrlKey, { uploadTarget: vm.uploadTarget, selectedObjects: selection }),
+      () => transfers.handleShortcut(e.key, e.ctrlKey, { uploadTarget: vm.uploadTarget, selection }),
       () => clipboard.handleShortcut(e.key, e.ctrlKey, { selection, target: vm.uploadTarget }),
       () => deletion.handleShortcut(e.key, selection),
       () => naming.handleShortcut(e.key, selection),
@@ -533,7 +533,7 @@
         </div>
       {/if}
 
-      {#if vm.listingState === 'loading'}
+      {#if vm.isBusy}
         <div class="s3-progress s3-progress-indeterminate listing-bar" role="progressbar" aria-label="Listing läuft">
           <i></i>
         </div>

@@ -81,6 +81,12 @@ mit Testdaten; in Tauri gegen `infrastructure/tauriBackend.ts`. Die gemeinsame S
 - Datenquellen nutzen normale `Map`/`Set` und melden Änderungen über einen `$state`-Versionszähler,
   keine `SvelteMap`/`SvelteSet` (ESLint-Regel `svelte/prefer-svelte-reactivity` ist deshalb aus).
 - Jede Lint-Ausnahme im Code bekommt einen Kommentar mit Begründung.
+- Sehr große Ordner (ab 50.000 Einträgen) bleiben im Backend: Seiten tragen dann nur einen Verweis
+  auf das Listing im SQLite-Cache, und `WindowSource` lädt sichtbare Fenster aus einer sortierten Sicht
+  (`application/windows.rs`). Sortier- und Filterregeln gibt es deshalb in Rust und TypeScript
+  (`domain/listing_window.rs` ↔ `features/objects/entry.ts`, `objectFilter.ts`); bei Änderungen beide pflegen.
+- Aktionen auf die Auswahl lösen sie über `resolveSelection` bzw. `SelectionRequest` auf, nie über geladene
+  Zeilen allein: In großen Ordnern sind nicht alle gewählten Einträge geladen.
 
 ## Werkzeuge
 

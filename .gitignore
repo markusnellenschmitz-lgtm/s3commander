@@ -31,6 +31,9 @@ CLAUDE.md
 design/BRIEFING.md
 design/s3-client-ui-handoff/reference/
 
+# Private Planung des Maintainers (Werbung, Veröffentlichung)
+PROMOTION.md
+
 # Zugangsdaten und lokale Umgebungen
 .env
 .env.*

@@ -5,14 +5,15 @@ use crate::domain::credentials::Credentials;
 use crate::domain::deletion::DeleteFailure;
 use crate::domain::details::{MetadataEntry, ObjectAcl, ObjectHead, ObjectTag, ObjectVersion};
 use crate::domain::error::{CacheError, CredentialError, RepositoryError, StoreError};
-use crate::domain::listing_cache::{CacheStats, FolderKey};
+use crate::domain::listing_cache::{CacheStats, FolderKey, StoredListing};
+use crate::domain::listing_window::{ListingId, ViewId, ViewInfo, WindowEntry, WindowFilter, WindowSort, WindowStats};
 use crate::domain::object::{BucketInfo, ListPage, ListRequest, ObjectEntry};
 use crate::domain::profile::ConnectionProfile;
 use crate::domain::transfer::{ByteCounter, Checksums, CompletedPart, FileRange, ObjectRef, UploadedPart};
 use crate::domain::transfer::{LocalFile, TransferUpdate};
 use crate::ports::{
-    BoxFuture, CacheWrite, Clock, CredentialStore, ListingCache, LocalFiles, ObjectStore, ProfileRepository, Spawner,
-    StoreFactory, StoreProvider, TransferEvents,
+    BoxFuture, CacheWrite, Clock, CredentialStore, ListingCache, ListingWindows, LocalFiles, ObjectStore,
+    ProfileRepository, Spawner, StoreFactory, StoreProvider, TransferEvents,
 };
 use std::collections::{HashMap, VecDeque};
 use std::future::{Future, ready};
@@ -832,6 +833,8 @@ impl Spawner for TokioSpawner {
 #[derive(Debug, Default)]
 pub struct FakeListingCache {
     listings: Mutex<HashMap<FolderKey, (i64, Vec<ListPage>)>>,
+    listing_ids: Mutex<HashMap<FolderKey, ListingId>>,
+    released: Mutex<Vec<ListingId>>,
     writes: Mutex<HashMap<CacheWrite, (FolderKey, Vec<ListPage>)>>,
     next_write: AtomicUsize,
     failing: AtomicBool,
@@ -840,10 +843,38 @@ pub struct FakeListingCache {
 
 impl FakeListingCache {
     pub fn put(&self, folder: &FolderKey, pages: Vec<ListPage>, fetched_ms: i64) {
+        let id = self.next_id();
+        self.put_as(id, folder, pages, fetched_ms);
+    }
+
+    fn put_as(&self, id: ListingId, folder: &FolderKey, pages: Vec<ListPage>, fetched_ms: i64) {
+        self.listing_ids.lock().unwrap().insert(folder.clone(), id);
         self.listings
             .lock()
             .unwrap()
             .insert(folder.clone(), (fetched_ms, pages));
+    }
+
+    fn next_id(&self) -> ListingId {
+        i64::try_from(self.next_write.fetch_add(1, Ordering::Relaxed)).unwrap()
+    }
+
+    /// Kennung des gespeicherten Listings eines Ordners.
+    pub fn listing_id(&self, folder: &FolderKey) -> Option<ListingId> {
+        self.listing_ids.lock().unwrap().get(folder).copied()
+    }
+
+    /// Einträge eines noch offenen (nicht abgeschlossenen) Listings.
+    pub fn open_entries(&self, write: CacheWrite) -> Option<usize> {
+        let writes = self.writes.lock().unwrap();
+        writes
+            .get(&write)
+            .map(|(_, pages)| pages.iter().map(ListPage::entry_count).sum())
+    }
+
+    /// Freigegebene Listings in Reihenfolge der Freigabe.
+    pub fn released(&self) -> Vec<ListingId> {
+        self.released.lock().unwrap().clone()
     }
 
     /// Zeitpunkt und Anzahl der Einträge des gespeicherten Listings.
@@ -885,9 +916,22 @@ impl ListingCache for FakeListingCache {
         Ok(true)
     }
 
+    fn find(&self, folder: &FolderKey) -> Result<Option<StoredListing>, CacheError> {
+        self.check()?;
+        let listings = self.listings.lock().unwrap();
+        let Some((fetched_ms, pages)) = listings.get(folder) else {
+            return Ok(None);
+        };
+        Ok(Some(StoredListing {
+            id: self.listing_id(folder).unwrap(),
+            fetched_ms: *fetched_ms,
+            entries: pages.iter().map(|p| p.entry_count() as u64).sum(),
+        }))
+    }
+
     fn begin(&self, folder: &FolderKey) -> Result<CacheWrite, CacheError> {
         self.check()?;
-        let id = i64::try_from(self.next_write.fetch_add(1, Ordering::Relaxed)).unwrap();
+        let id = self.next_id();
         self.writes.lock().unwrap().insert(id, (folder.clone(), Vec::new()));
         Ok(id)
     }
@@ -910,8 +954,14 @@ impl ListingCache for FakeListingCache {
     fn commit(&self, write: CacheWrite, fetched_ms: i64) -> Result<(), CacheError> {
         self.check()?;
         let (folder, pages) = self.writes.lock().unwrap().remove(&write).unwrap();
-        self.put(&folder, pages, fetched_ms);
+        self.put_as(write, &folder, pages, fetched_ms);
         Ok(())
+    }
+
+    fn release(&self, listing: ListingId) -> Result<(), CacheError> {
+        self.writes.lock().unwrap().remove(&listing);
+        self.released.lock().unwrap().push(listing);
+        self.check()
     }
 
     fn discard(&self, write: CacheWrite) -> Result<(), CacheError> {
@@ -946,5 +996,85 @@ impl ListingCache for FakeListingCache {
                 .sum(),
             bytes: 0,
         })
+    }
+}
+
+/// Sichten auf ein Listing mit `k00000`, `k00001`, … im Speicher.
+#[derive(Debug, Default)]
+pub struct FakeWindows {
+    entries: Vec<WindowEntry>,
+    next_view: AtomicUsize,
+    closed: Mutex<Vec<ViewId>>,
+    failing: AtomicBool,
+}
+
+impl FakeWindows {
+    pub fn with_entries(count: usize) -> Self {
+        let entries = (0..count)
+            .map(|i| WindowEntry {
+                key: format!("k{i:05}"),
+                is_prefix: false,
+                size: 1,
+                last_modified_ms: None,
+                etag: None,
+                storage_class: None,
+            })
+            .collect();
+        Self {
+            entries,
+            ..Self::default()
+        }
+    }
+
+    pub fn closed(&self) -> Vec<ViewId> {
+        self.closed.lock().unwrap().clone()
+    }
+
+    pub fn fail(&self) {
+        self.failing.store(true, Ordering::Relaxed);
+    }
+
+    fn check(&self) -> Result<(), CacheError> {
+        if self.failing.load(Ordering::Relaxed) {
+            return Err(CacheError::Storage("Datei gesperrt".into()));
+        }
+        Ok(())
+    }
+}
+
+impl ListingWindows for FakeWindows {
+    fn open_view(&self, _: ListingId, _: &WindowFilter, _: WindowSort) -> Result<ViewInfo, CacheError> {
+        self.check()?;
+        let count = self.entries.len() as u64;
+        Ok(ViewInfo {
+            view_id: self.next_view.fetch_add(1, Ordering::Relaxed) as u64,
+            stats: WindowStats {
+                count,
+                folders: 0,
+                bytes: count,
+                total: count,
+            },
+        })
+    }
+
+    fn view_entries(&self, _: ViewId, offset: u64, limit: u64) -> Result<Vec<WindowEntry>, CacheError> {
+        self.check()?;
+        let start = usize::try_from(offset).unwrap_or(usize::MAX);
+        let limit = usize::try_from(limit).unwrap_or(usize::MAX);
+        Ok(self.entries.iter().skip(start).take(limit).cloned().collect())
+    }
+
+    fn view_entries_except(&self, _: ViewId, excluded: &[String]) -> Result<Vec<WindowEntry>, CacheError> {
+        self.check()?;
+        Ok(self
+            .entries
+            .iter()
+            .filter(|e| !excluded.contains(&e.key))
+            .cloned()
+            .collect())
+    }
+
+    fn close_view(&self, view: ViewId) {
+        self.closed.lock().unwrap().push(view);
     }
 }

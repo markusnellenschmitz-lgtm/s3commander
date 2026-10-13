@@ -53,7 +53,7 @@ describe('SplitViewModel', () => {
     expect(other.active).toBe(false);
   });
 
-  it('kopiert die lokale Auswahl in den Bucket und die Bucket-Auswahl nach lokal', () => {
+  it('kopiert die lokale Auswahl in den Bucket und die Bucket-Auswahl nach lokal', async () => {
     expect([split.canUpload, split.canDownload]).toEqual([false, false]);
     local.selection.set(CHECKSUMS, true);
     browser.selection.set(daily().key, true);
@@ -65,9 +65,12 @@ describe('SplitViewModel', () => {
       CHECKSUMS,
     ]);
     split.download();
-    expect(download).toHaveBeenCalledWith(browser.selectedObjects, DB_PROD);
+    await settle();
+    const selection = await browser.resolveSelection();
+    expect(download).toHaveBeenCalledWith(selection, DB_PROD);
     split.copyFrom('bucket', `${DB_PROD}\\alt`);
-    expect(download).toHaveBeenLastCalledWith(browser.selectedObjects, `${DB_PROD}\\alt`);
+    await settle();
+    expect(download).toHaveBeenLastCalledWith(selection, `${DB_PROD}\\alt`);
   });
 
   it('tut nichts ohne Auswahl oder Ziel und reagiert auf Strg+U', async () => {
@@ -105,7 +108,7 @@ describe('PanelDragViewModel', () => {
     expect(drag.targetText).toBe('Zum Kopieren auf der anderen Seite ablegen');
   });
 
-  it('legt auf einer Ordnerzeile oder im offenen Ordner der anderen Seite ab', () => {
+  it('legt auf einer Ordnerzeile oder im offenen Ordner der anderen Seite ab', async () => {
     drag.press('local', entry(local.source, 'checksums.sha256'), 0, 0, false);
     point = { side: 'bucket', rowIndex: browser.source.indexOfKey(daily().key) };
     drag.move(20, 20);
@@ -125,7 +128,8 @@ describe('PanelDragViewModel', () => {
     expect(drag.highlights('local')).toBe(true);
     expect(drag.targetText).toBe(`Speichern nach ${DB_PROD}`);
     drag.release();
-    expect(download).toHaveBeenCalledWith(browser.selectedObjects, DB_PROD);
+    await settle();
+    expect(download).toHaveBeenCalledWith(await browser.resolveSelection(), DB_PROD);
   });
 
   it('kopiert nichts über der eigenen Seite, nach Esc oder mit Strg', () => {

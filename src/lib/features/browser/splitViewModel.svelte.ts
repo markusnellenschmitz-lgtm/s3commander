@@ -48,9 +48,11 @@ export class SplitViewModel {
 
   /** Bucket-Auswahl in den offenen lokalen Ordner oder in `dir` speichern. */
   download(dir?: string): void {
-    const selection = this.#deps.browser.selectedObjects;
     const targetDir = dir ?? this.#deps.local.path;
-    if (selection && targetDir) void this.#deps.transfers.downloadTo(selection, targetDir);
+    if (!targetDir) return;
+    void this.#deps.browser.resolveSelection().then((selection) => {
+      if (selection) void this.#deps.transfers.downloadTo(selection, targetDir);
+    });
   }
 
   /** Abgelegt auf der anderen Seite: dorthin kopieren, wo gezogen wurde. */

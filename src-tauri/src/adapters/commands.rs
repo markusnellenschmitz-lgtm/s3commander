@@ -17,6 +17,7 @@ use crate::application::connections::ConnectionService;
 use crate::application::copy::{CopySource, CopyTarget};
 use crate::application::deletion::DeleteService;
 use crate::application::details::{DetailsService, ObjectAddressRef};
+use crate::application::error::AppError;
 use crate::application::folders::FolderService;
 use crate::application::listing::ListingSummary;
 use crate::application::local_browse::list_local;
@@ -25,11 +26,13 @@ use crate::application::settings::SettingsService;
 use crate::application::share;
 use crate::application::sync::{SyncPreview, SyncRequest, SyncService, SyncWork};
 use crate::application::transfers::{TransferManager, TransferSettings};
+use crate::application::windows::ListingWindowService;
 use crate::domain::credentials::Credentials;
 use crate::domain::deletion::{DeleteOutcome, DeletePreview, DeleteProgress};
 use crate::domain::details::{MetadataEntry, ObjectAcl, ObjectHead, ObjectTag, ObjectVersion};
-use crate::domain::error::{ErrorReport, StoreError};
+use crate::domain::error::{CacheError, ErrorReport, StoreError};
 use crate::domain::listing_cache::{CacheStats, FolderKey, FolderPage, ListingMode};
+use crate::domain::listing_window::{ListingId, ViewId, ViewInfo, WindowEntry, WindowFilter, WindowSort};
 use crate::domain::local_dir::LocalEntry;
 use crate::domain::naming::{RenameOutcome, RenameProgress};
 use crate::domain::object::BucketInfo;
@@ -64,8 +67,14 @@ pub type AppNaming = NamingService<SharedService>;
 /// Objekt-Details (Screen 5).
 pub type AppDetails = DetailsService<SharedService>;
 
+/// Der Listing-Cache wird von Ordner-Listings und Fenstern geteilt.
+pub type SharedCache = Arc<SqliteListingCache>;
+
 /// Ordner listen mit Listing-Cache.
-pub type AppFolders = FolderService<SharedService, SqliteListingCache, SystemClock>;
+pub type AppFolders = FolderService<SharedService, SharedCache, SystemClock>;
+
+/// Fenster aus sehr großen Ordnern; geteilt, damit lange Abfragen außerhalb des Befehls laufen.
+pub type AppWindows = Arc<ListingWindowService<SharedCache>>;
 
 /// Abgleich lokal ↔ Bucket.
 pub type AppSync = SyncService<SharedService, StdLocalFiles>;
@@ -226,6 +235,65 @@ pub fn start_sync(
 #[allow(clippy::needless_pass_by_value)] // Tauri übergibt Argumente als Wert
 pub fn list_local_dir(path: Option<String>) -> Result<Vec<LocalEntry>, CommandError> {
     Ok(list_local(&StdLocalFiles, path.as_deref())?)
+}
+
+/// Die Oberfläche zeigt ein Listing für Fenster nicht mehr.
+#[tauri::command]
+pub fn release_listing(folders: State<'_, AppFolders>, listing_id: ListingId) {
+    folders.release_listing(listing_id);
+}
+
+/// Führt eine längere Cache-Abfrage auf einem Hilfs-Thread aus, damit die Oberfläche flüssig bleibt.
+async fn off_main_thread<T, F>(work: F) -> Result<T, CommandError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, AppError> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|error| AppError::Cache(CacheError::Storage(error.to_string())))?
+        .map_err(CommandError::from)
+}
+
+/// Öffnet eine sortierte und gefilterte Sicht auf ein Listing und zählt ihre Treffer; ohne
+/// Filter zeigt sie alle Einträge.
+#[tauri::command]
+pub async fn open_window(
+    windows: State<'_, AppWindows>,
+    listing_id: ListingId,
+    filter: Option<WindowFilter>,
+    sort: WindowSort,
+) -> Result<ViewInfo, CommandError> {
+    let windows = Arc::clone(&windows);
+    off_main_thread(move || windows.open(listing_id, &filter.unwrap_or_default(), sort)).await
+}
+
+/// Zeilen einer Sicht ab `offset`.
+#[tauri::command]
+pub async fn window_entries(
+    windows: State<'_, AppWindows>,
+    view_id: ViewId,
+    offset: u64,
+    limit: u64,
+) -> Result<Vec<WindowEntry>, CommandError> {
+    let windows = Arc::clone(&windows);
+    off_main_thread(move || windows.entries(view_id, offset, limit)).await
+}
+
+/// Alle Treffer einer Sicht außer den ausgenommenen Keys (Auswahl „alle außer …“).
+#[tauri::command]
+pub async fn window_selection(
+    windows: State<'_, AppWindows>,
+    view_id: ViewId,
+    excluded: Vec<String>,
+) -> Result<Vec<WindowEntry>, CommandError> {
+    let windows = Arc::clone(&windows);
+    off_main_thread(move || windows.selection(view_id, &excluded)).await
+}
+
+#[tauri::command]
+pub fn close_window(windows: State<'_, AppWindows>, view_id: ViewId) {
+    windows.close(view_id);
 }
 
 /// Umfang des Listing-Caches für Einstellungen › Cache.

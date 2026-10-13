@@ -7,6 +7,7 @@ pub mod details;
 pub mod endpoint;
 pub mod error;
 pub mod listing_cache;
+pub mod listing_window;
 pub mod local_dir;
 pub mod local_path;
 pub mod multipart;

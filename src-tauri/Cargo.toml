@@ -38,7 +38,7 @@ mime_guess = "2.0.5"
 tauri-plugin-dialog = "2"
 md-5 = "0.11.0"
 base64 = "0.23.1"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.40.2", features = ["bundled", "collation", "functions"] }
 crc32c = "0.6.8"
 
 [profile.release]

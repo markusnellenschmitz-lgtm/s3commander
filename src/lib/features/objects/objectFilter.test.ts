@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterPredicate, isActive, namePattern, NO_FILTER, type ObjectFilter } from './objectFilter';
+import { entryMatcher, filterQuery, isActive, namePattern, NO_FILTER, type ObjectFilter } from './objectFilter';
 import { file, folder } from '../../../test/fakes';
 
 const NOW = new Date(2026, 9, 11, 12).getTime();
@@ -15,14 +15,15 @@ const entries = [
 ];
 
 function names(filter: Partial<ObjectFilter>): string[] {
-  const predicate = filterPredicate({ ...NO_FILTER, ...filter }, NOW);
-  return entries.filter((e) => predicate?.(e) ?? true).map((e) => e.name);
+  const query = filterQuery({ ...NO_FILTER, ...filter }, NOW);
+  const matches = query ? entryMatcher(query) : () => true;
+  return entries.filter(matches).map((e) => e.name);
 }
 
 describe('Objektfilter', () => {
   it('ist ohne Angaben inaktiv', () => {
     expect(isActive(NO_FILTER)).toBe(false);
-    expect(filterPredicate(NO_FILTER, NOW)).toBeNull();
+    expect(filterQuery(NO_FILTER, NOW)).toBeNull();
     expect(isActive({ ...NO_FILTER, text: '  ' })).toBe(false);
     expect(isActive({ ...NO_FILTER, date: 'week' })).toBe(true);
   });
@@ -46,5 +47,26 @@ describe('Objektfilter', () => {
     expect(names({ date: 'older' })).toEqual(['video.mp4']);
     expect(names({ text: 'gp', size: 'medium' })).toEqual(['geheim.gpg']);
     expect(names({ text: 'gp', size: 'small' })).toEqual([]);
+  });
+
+  it('übersetzt die Auswahl in absolute Grenzen für das Backend', () => {
+    expect(filterQuery({ ...NO_FILTER, text: ' db ', kind: 'archive' }, NOW)).toEqual({
+      text: 'db',
+      kind: 'archive',
+      minSize: null,
+      maxSize: null,
+      modifiedFrom: null,
+      modifiedTo: null,
+    });
+    expect(filterQuery({ ...NO_FILTER, size: 'huge' }, NOW)).toMatchObject({ minSize: 1024 * MiB, maxSize: null });
+    expect(filterQuery({ ...NO_FILTER, size: 'small' }, NOW)).toMatchObject({ minSize: 0, maxSize: MiB });
+    expect(filterQuery({ ...NO_FILTER, date: 'week' }, NOW)).toMatchObject({
+      modifiedFrom: NOW - 7 * DAY,
+      modifiedTo: NOW,
+    });
+    expect(filterQuery({ ...NO_FILTER, date: 'older' }, NOW)).toMatchObject({
+      modifiedFrom: null,
+      modifiedTo: NOW - 365 * DAY,
+    });
   });
 });

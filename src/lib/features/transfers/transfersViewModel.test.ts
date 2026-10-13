@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TransfersViewModel } from './transfersViewModel.svelte';
 import { createFakeBackend } from '../../infrastructure/fakeBackend';
 import { createFakeFilePicker, FAKE_TARGET_FOLDER } from '../../infrastructure/filePickers';
-import type { BackendPort, FolderLocation, TransferSnapshot, TransferUpdate } from '../../core/backend';
+import {
+  selectionOf,
+  type BackendPort,
+  type FolderLocation,
+  type TransferSnapshot,
+  type TransferUpdate,
+} from '../../core/backend';
 import { transfer } from '../../../test/transfers';
 
 const target = { profileId: 'aws-prod', bucket: 'prod-backups-eu', prefix: 'backups/' };
@@ -163,11 +169,11 @@ describe('Aktionen', () => {
     expect(vm.error).toBeNull();
   });
 
-  it('bedient Strg+J, Strg+U und Strg+D', () => {
+  it('bedient Strg+J, Strg+U und Strg+D', async () => {
     const upload = vi.spyOn(vm, 'upload').mockResolvedValue();
     const download = vi.spyOn(vm, 'download').mockResolvedValue();
-    const none = { uploadTarget: null, selectedObjects: () => null };
-    const full = { uploadTarget: target, selectedObjects: () => selection };
+    const none = { uploadTarget: null, selection: selectionOf(null) };
+    const full = { uploadTarget: target, selection: selectionOf(selection) };
     expect(vm.handleShortcut('j', false, full)).toBe(false);
     expect(vm.handleShortcut('J', true, full)).toBe(true);
     expect(vm.expanded).toBe(true);
@@ -176,6 +182,7 @@ describe('Aktionen', () => {
     expect(vm.handleShortcut('u', true, full)).toBe(true);
     expect(upload).toHaveBeenCalledWith(target);
     expect(vm.handleShortcut('D', true, full)).toBe(true);
+    await Promise.resolve();
     expect(download).toHaveBeenCalledWith(selection);
     expect(vm.handleShortcut('x', true, full)).toBe(false);
     vm.toggle();

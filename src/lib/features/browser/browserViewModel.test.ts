@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BrowserViewModel, FLUSH_INTERVAL_MS, bucketNodeId, connectionNodeId } from './browserViewModel.svelte';
+import { BrowserViewModel, bucketNodeId, connectionNodeId } from './browserViewModel.svelte';
+import { FLUSH_INTERVAL_MS } from './folderContent.svelte';
 import { createFakeBackend, FAKE_PROFILES, SIGNATURE_ERROR } from '../../infrastructure/fakeBackend';
 import { BACKUPS_PREFIX } from '../../infrastructure/fixtures/buckets';
 import type { BackendPort } from '../../core/backend';
@@ -334,7 +335,7 @@ describe('Uploads', () => {
 
 describe('Downloads', () => {
   it('liefert die Auswahl im offenen Ordner zum Herunterladen', async () => {
-    expect([vm.hasSelection, vm.selectedObjects]).toEqual([false, null]);
+    expect([vm.hasSelection, await vm.resolveSelection(), vm.selectionRequest.count]).toEqual([false, null, 0]);
     await openBackups();
     scheduled.forEach((run) => run());
     expect(vm.hasSelection).toBe(false);
@@ -343,7 +344,8 @@ describe('Downloads', () => {
     vm.selection.set(daily.key, true);
     vm.selection.set(file.key, true);
     expect(vm.hasSelection).toBe(true);
-    expect(vm.selectedObjects).toEqual({
+    expect(vm.selectionRequest.count).toBe(2);
+    expect(await vm.selectionRequest.resolve()).toEqual({
       folder: { profileId: 'aws-prod', bucket: 'prod-backups-eu', prefix: BACKUPS_PREFIX },
       items: [
         { key: daily.key, isFolder: true, size: 0, etag: null, lastModifiedMs: null },
@@ -362,7 +364,7 @@ describe('Downloads', () => {
     await openBackups();
     vm.selection.set('weg', true);
     expect(vm.hasSelection).toBe(true);
-    expect(vm.selectedObjects).toBeNull();
+    expect(await vm.resolveSelection()).toBeNull();
   });
 });
 
@@ -373,6 +375,7 @@ describe('Listing-Cache', () => {
     prefixes: [],
     nextToken: null,
     cachedMs,
+    window: null,
   });
 
   /** Liefert erst eine Seite aus dem Cache, dann auf Kommando die frische Seite oder einen Fehler. */
@@ -427,5 +430,68 @@ describe('Listing-Cache', () => {
     const listFolder = vi.spyOn(backend, 'listFolder');
     vm.refresh();
     expect(listFolder.mock.calls[0][5]).toEqual({ fresh: true });
+  });
+});
+
+describe('Sehr große Ordner', () => {
+  async function openLogs() {
+    create(createFakeBackend({ pageDelayMs: 0, logObjects: 3000, windowThreshold: 1000 }));
+    await vm.loadProfiles();
+    vm.openBucket('aws-prod', 'prod-logs-eu');
+    await settle();
+    vm.openPrefix('cloudfront/');
+    await settle();
+    await settle();
+  }
+
+  it('lädt Fenster statt aller Einträge und zählt aus dem Backend', async () => {
+    await openLogs();
+    expect([vm.listingState, vm.source.isComplete, vm.isBusy]).toEqual(['done', false, false]);
+    expect([vm.source.length, vm.loadedCount, vm.isEmptyFolder]).toEqual([3000, 3000, false]);
+    expect(vm.countText).toBe('3.000 Objekte');
+  });
+
+  it('wählt alle und löst die Auswahl über das Backend auf', async () => {
+    await openLogs();
+    vm.source.ensureRange?.(0, 20);
+    await settle();
+    const first = vm.source.get(0)!;
+    vm.selection.selectAll();
+    vm.selection.set(first.key, false);
+    expect(vm.selectionRequest.count).toBe(2999);
+    const selection = await vm.selectionRequest.resolve();
+    expect(selection?.items).toHaveLength(2999);
+    expect(selection?.items.some((item) => item.key === first.key)).toBe(false);
+  });
+
+  it('filtert im Backend und gibt das Listing beim Ordnerwechsel frei', async () => {
+    await openLogs();
+    const release = vi.spyOn(backend, 'releaseListing');
+    vm.applyFilter({
+      text: 'zzz-gibt-es-nicht',
+      kind: null,
+      minSize: null,
+      maxSize: null,
+      modifiedFrom: null,
+      modifiedTo: null,
+    });
+    await settle();
+    expect([vm.source.length, vm.hasNoMatches]).toEqual([0, true]);
+    vm.goUp();
+    await settle();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(vm.source.isComplete).toBe(true);
+  });
+
+  it('zeigt Fehler beim Laden von Fenstern in der Fehlerleiste', async () => {
+    create(createFakeBackend({ pageDelayMs: 0, logObjects: 3000, windowThreshold: 1000 }));
+    vi.spyOn(backend, 'openWindow').mockRejectedValue({ kind: 'cache', message: 'Datei gesperrt' });
+    await vm.loadProfiles();
+    vm.openBucket('aws-prod', 'prod-logs-eu');
+    await settle();
+    vm.openPrefix('cloudfront/');
+    await settle();
+    await settle();
+    expect(vm.visibleError).toEqual({ kind: 'cache', message: 'Datei gesperrt' });
   });
 });

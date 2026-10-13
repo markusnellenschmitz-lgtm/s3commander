@@ -71,6 +71,8 @@ Fertige Versionen gibt es unter **[Releases](https://github.com/markusnellenschm
 **Durchsuchen**
 
 - Virtuelle Objektliste für Millionen Einträge mit Sortierung, Mehrfachauswahl und Tastatursteuerung.
+- Sehr große Ordner (ab 50.000 Einträgen) bleiben im lokalen Cache; die Liste lädt nur sichtbare
+  Ausschnitte, Sortieren, Filtern und „Alle auswählen“ laufen dort, ohne alles in die Oberfläche zu holen.
 - Gestreamtes Listing mit Abbruch; ein lokaler SQLite-Cache zeigt bekannte Ordner sofort an und
   aktualisiert sie im Hintergrund.
 - Suche mit Platzhaltern und Filter nach Typ, Größe und Datum.

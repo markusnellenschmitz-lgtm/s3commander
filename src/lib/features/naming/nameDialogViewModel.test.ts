@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NameDialogViewModel } from './nameDialogViewModel.svelte';
 import { createFakeBackend } from '../../infrastructure/fakeBackend';
 import { BACKUPS_PREFIX } from '../../infrastructure/fixtures/buckets';
-import type { BackendPort, FolderLocation, ObjectSelection, RenameOutcome } from '../../core/backend';
+import {
+  selectionOf,
+  type BackendPort,
+  type FolderLocation,
+  type ObjectSelection,
+  type RenameOutcome,
+} from '../../core/backend';
 
 const folder = { profileId: 'aws-prod', bucket: 'prod-backups-eu', prefix: BACKUPS_PREFIX };
 const daily = { key: `${BACKUPS_PREFIX}daily/`, isFolder: true, size: 0, etag: null };
@@ -91,15 +97,16 @@ describe('Umbenennen', () => {
     expect(vm.isOpen).toBe(false);
   });
 
-  it('öffnet mit F2 nur für genau einen Eintrag', () => {
-    expect(vm.handleShortcut('F3', () => select(file))).toBe(false);
-    expect(vm.handleShortcut('F2', () => null)).toBe(false);
-    expect(vm.handleShortcut('F2', () => select(file, daily))).toBe(false);
+  it('öffnet mit F2 nur für genau einen Eintrag', async () => {
+    expect(vm.handleShortcut('F3', selectionOf(select(file)))).toBe(false);
+    expect(vm.handleShortcut('F2', selectionOf(null))).toBe(false);
+    expect(vm.handleShortcut('F2', selectionOf(select(file, daily)))).toBe(false);
     vm.openRename(select(file, daily));
     expect(vm.isOpen).toBe(false);
-    expect(vm.handleShortcut('F2', () => select(file))).toBe(true);
+    expect(vm.handleShortcut('F2', selectionOf(select(file)))).toBe(true);
+    await Promise.resolve();
     expect(vm.mode).toBe('rename');
-    expect(vm.handleShortcut('F2', () => select(daily))).toBe(false);
+    expect(vm.handleShortcut('F2', selectionOf(select(daily)))).toBe(false);
     expect(vm.progressText).toBe('');
   });
 });
