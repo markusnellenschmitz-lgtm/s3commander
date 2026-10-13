@@ -77,8 +77,12 @@ pub fn numbered_path(target: &Path, number: u32) -> PathBuf {
 mod tests {
     use super::*;
 
+    /// Segmente des Ergebnisses mit `/` verbunden, damit die Erwartungen auf jeder Plattform gelten.
     fn relative(base: &str, key: &str) -> Option<String> {
-        download_relative_path(base, key).map(|p| p.to_string_lossy().into_owned())
+        download_relative_path(base, key).map(|path| {
+            let segments: Vec<_> = path.iter().map(|segment| segment.to_string_lossy()).collect();
+            segments.join("/")
+        })
     }
 
     #[test]
@@ -86,9 +90,9 @@ mod tests {
         assert_eq!(relative("backups/", "backups/a.bin").as_deref(), Some("a.bin"));
         assert_eq!(
             relative("backups/", "backups/daily/2026/db.tar").as_deref(),
-            Some(r"daily\2026\db.tar")
+            Some("daily/2026/db.tar")
         );
-        assert_eq!(relative("", "x/y.txt").as_deref(), Some(r"x\y.txt"));
+        assert_eq!(relative("", "x/y.txt").as_deref(), Some("x/y.txt"));
         assert_eq!(relative("anders/", "x.txt").as_deref(), Some("x.txt"));
     }
 
@@ -97,16 +101,16 @@ mod tests {
         assert_eq!(relative("p/", "p/ordner/"), None);
         assert_eq!(relative("p/", "p/"), None);
         assert_eq!(relative("", "//"), None);
-        assert_eq!(relative("", "a//b").as_deref(), Some(r"a\b"));
+        assert_eq!(relative("", "a//b").as_deref(), Some("a/b"));
     }
 
     #[test]
     fn never_leaves_the_target_folder() {
         assert_eq!(
             relative("", "../../windows/system32/x.dll").as_deref(),
-            Some(r"_\_\windows\system32\x.dll")
+            Some("_/_/windows/system32/x.dll")
         );
-        assert_eq!(relative("", "./a").as_deref(), Some(r"_\a"));
+        assert_eq!(relative("", "./a").as_deref(), Some("_/a"));
         assert_eq!(relative("", r"C:\boot.ini").as_deref(), Some("C__boot.ini"));
     }
 
@@ -117,14 +121,14 @@ mod tests {
         assert_eq!(relative("", "ende. ").as_deref(), Some("ende"));
         assert_eq!(
             relative("", "fotos 2026/bild.jpg").as_deref(),
-            Some(r"fotos 2026\bild.jpg")
+            Some("fotos 2026/bild.jpg")
         );
     }
 
     #[test]
     fn defuses_reserved_device_names() {
         assert_eq!(relative("", "CON").as_deref(), Some("_CON"));
-        assert_eq!(relative("", "logs/nul.txt").as_deref(), Some(r"logs\_nul.txt"));
+        assert_eq!(relative("", "logs/nul.txt").as_deref(), Some("logs/_nul.txt"));
         assert_eq!(relative("", "console.txt").as_deref(), Some("console.txt"));
     }
 
