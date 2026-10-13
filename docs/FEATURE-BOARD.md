@@ -1,6 +1,6 @@
 # Feature-Board – S3 Commander
 
-Stand: 12.10.2026. Reihenfolge innerhalb einer Spalte = Priorität. Referenzen auf Screens beziehen
+Stand: 13.10.2026. Reihenfolge innerhalb einer Spalte = Priorität. Referenzen auf Screens beziehen
 sich auf `design/s3-client-ui-handoff/docs/UI-SPEC.md`.
 
 ## In Arbeit
@@ -19,6 +19,15 @@ _Nichts._
 
 ## Ideen
 
+- **Dauerhafter Ordner-Sync:** Einen oder mehrere lokale Ordner mit Bucket-Präfixen synchron halten
+  (Sync-Aufträge mit Richtung, Ausschlussmustern und Löschregel). Baut auf dem vorhandenen Abgleich auf und braucht:
+  Dateiüberwachung (`notify`) plus regelmäßigen Vollscan, Listing im Intervall für die Bucket-Seite, einen
+  Sync-Zustand in SQLite (sonst sind Löschungen und Konflikte nicht erkennbar) und Schutzregeln (Löschen
+  standardmäßig aus, Stopp bei ungewöhnlich vielen Löschungen, nur stabile Dateien übertragen). Reihenfolge:
+  Lokal → Bucket, dann Bucket → Lokal mit Löschungen, zuletzt beidseitig mit Konfliktkopien. Läuft als
+  Hintergrundprozess in der Benutzersitzung (Autostart, Infobereich-Symbol, unter Linux optional
+  `systemd --user`), nicht als Systemdienst: Ein Dienst käme nicht an die Zugangsdaten im Speicher des
+  Benutzers. Ein echter Dienst nur als eigener Server-Modus mit anderer Quelle für Zugangsdaten.
 - Versionen wiederherstellen und Delete Marker entfernen.
 - Bucket-Policies, CORS und Lifecycle als Editor.
 - Server-Side Encryption (SSE-S3, SSE-KMS, SSE-C), Object Lock.
